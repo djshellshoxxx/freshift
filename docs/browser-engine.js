@@ -2,6 +2,7 @@
 (function(root){
 'use strict';
 const MAX_BYTES=8388608;
+const subdomainTools=root.FreshSiftSubdomains||(typeof require==='function'?require('./subdomains.js'):null);
 const lines=x=>String(x||'').split(/[\n\r,]+/).map(s=>s.trim()).filter(Boolean);
 const exts=x=>lines(x).map(s=>s.toLowerCase().startsWith('.')?s.toLowerCase():'.'+s.toLowerCase());
 const host=u=>new URL(u).hostname.toLowerCase();
@@ -79,16 +80,25 @@ class BrowserEngine {
  constructor({fetchResource=nativeFetch,onUpdate=()=>{}}={}){this.transport=fetchResource;this.onUpdate=onUpdate;this.reset()}
  reset(){
   this.running=false;this.paused=false;this.cancelled=false;this.queue=[];this.seen=new Set();this.hostCounts=new Map();this.robots=new Map();
-  this.matches=[];this.urls=new Map();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
-  this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
+  this.matches=[];this.urls=new Map();this.subdomains=new Map();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
+  this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,subdomains:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
  }
  snapshot(){
   const stats={...this.stats};stats.queued=this.queue.length;
   if(stats.startedAt){stats.elapsedSeconds=((stats.finishedAt?Date.parse(stats.finishedAt):Date.now())-Date.parse(stats.startedAt))/1000;stats.pagesPerMinute=stats.elapsedSeconds>0?stats.pagesScanned*60/stats.elapsedSeconds:0}
   stats.MBScanned=stats.bytesScanned/1048576;stats.textMB=stats.textBytes/1048576;
-  return {stats,urls:[...this.urls.values()],matches:this.matches.slice(-500),logs:[...this.logs]};
+  return {stats,urls:[...this.urls.values()],subdomains:[...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname)).slice(0,500),matches:this.matches.slice(-500),logs:[...this.logs]};
  }
  allResults(){return [...this.matches]}
+ allSubdomains(){return [...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname))}
+ addSubdomain(row){
+  const old=this.subdomains.get(row.hostname);
+  if(old?.verified&&!row.verified)return;
+  this.subdomains.set(row.hostname,row);
+  this.stats.subdomains=this.subdomains.size;
+  this.enqueue('https://'+row.hostname+'/','subdomain-'+row.source);
+  this.onUpdate(this.snapshot());
+ }
  log(msg){this.logs.push(new Date().toISOString().slice(11,19)+' '+msg);if(this.logs.length>200)this.logs.shift();this.onUpdate(this.snapshot())}
  error(label,e){this.stats.errors++;this.stats.lastError=String(e?.message||e);this.log(label+': '+this.stats.lastError)}
  allow(url){
@@ -273,7 +283,7 @@ class BrowserEngine {
   this.cfg.depth=Math.max(0,Math.min(8,Number(this.cfg.depth)||0));
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
   if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
-  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length)throw Error('Enter search phrase');
+  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains)throw Error('Enter search phrase or enable subdomain enumeration');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
   if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
@@ -281,6 +291,11 @@ class BrowserEngine {
   try{
    await this.scanLocal(localFiles);
    for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
+   if(this.cfg.enumerateSubdomains){
+    if(!subdomainTools)throw Error('Subdomain discovery module is missing');
+    await subdomainTools.discover({config:this.cfg,fetchResource:url=>this.fetch(url),
+      report:row=>this.addSubdomain(row),log:msg=>this.log(msg),signal:this.signal.signal});
+   }
    await this.discover();
    await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
    this.stats.status=this.cancelled?'cancelled':'completed';
