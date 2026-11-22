@@ -577,9 +577,11 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
 	if !c.EnumerateSubdomains {
 		return nil, nil
 	}
-	words, err := parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
-	if err != nil {
-		return nil, err
+	words := []string{}
+	if c.SubdomainGuess {
+		var err error
+		words, err = parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
+		if err != nil {return nil, err}
 	}
 	roots := []string{}
 	visited := map[string]bool{}
