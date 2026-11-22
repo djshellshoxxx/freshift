@@ -23,9 +23,13 @@ jobs:
       - name: UI contract and syntax checks (Node)
         run: |
           node --check web/app.js
+          node --check web/browser-engine.js
+          node --check extension/content-script.js
+          node --check extension/background.js
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
           node qa/browser-engine.test.cjs
+          node qa/extension-contract.test.cjs
       - name: End-to-end local HTTP API smoke tests
         run: |
           go build -o /tmp/freshsift-ci .
