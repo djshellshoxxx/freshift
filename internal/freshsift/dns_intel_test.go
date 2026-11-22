@@ -29,6 +29,8 @@ func TestDNSIntelConfigOptionsAndStandalone(t *testing.T) {
  c.ReverseDNSPageDepth=9
  if err:=c.Normalize();err==nil {t.Fatal("reverse crawl depth >8 accepted")}
  c.ReverseDNSPageDepth=2
+ c.EnumerateSubdomains=true
+ c.SubdomainUseCT=true
  c.ReverseDNSSubdomains=true
  c.ReverseDNSSubdomainDepth=3
  if err:=c.Normalize();err!=nil {t.Fatal(err)}
@@ -69,4 +71,11 @@ func TestReverseCandidateDepthIsIndependent(t *testing.T) {
  if reverseChildAllowed(cfg,item,"https://ptr.example.org/deep",false){t.Fatal("reverse depth exceeded")}
  item.Depth=0
  if reverseChildAllowed(cfg,item,"https://other.example.org/",false){t.Fatal("reverse scope escaped")}
+}
+
+func TestDifferentIPsRejectsSharedAddress(t *testing.T){
+ base:=[]net.IP{net.ParseIP("8.8.8.8"),net.ParseIP("1.1.1.1")}
+ sub:=[]net.IP{net.ParseIP("1.1.1.1"),net.ParseIP("9.9.9.9")}
+ got:=differentIPs(base,sub)
+ if len(got)!=1||got[0].String()!="9.9.9.9"{t.Fatalf("wrong changed address result: %v",got)}
 }
