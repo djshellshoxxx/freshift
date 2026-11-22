@@ -13,6 +13,24 @@ FreshSift supports exact strings, RE2 regex, binary/source-byte searching, and *
 *Illustrative filetype-search preview. The actual application uses `web/index.html`, `web/style.css` and `web/app.js`; test your screen size in the local browser.*
 
 
+## Subdomain enumeration (Go + GitHub Pages)
+
+FreshSift can discover subdomains belonging to a seed hostname such as `example.org` or `github.io`. This runs **only when enabled** and can be used on its own (leave the string search blank), or together with ordinary page / file searches.
+
+1. Add the parent host to **Starting websites**, e.g. `github.io` or `https://example.org/`.
+2. Select **Discover subdomains of starting hosts**.
+3. Keep **Use built-in common subdomain wordlist** enabled to try 342 common prefixes (such as `www`, `api`, `mail`, `dev`, `staging`, `vpn` and `git`).
+4. Optionally import a TXT/CSV wordlist, or paste prefixes into **Custom subdomain words**. Words may be separated by newlines, commas, or spaces; nested prefixes such as `api.dev` are accepted. Invalid DNS labels and duplicates are ignored.
+5. Optionally include **historical certificate-transparency names**, select a result limit (50–2,000), then press GO.
+
+All discovered hostnames appear in the independent **Discovered subdomains** panel, even if the HTML search returns no content matches. Export the full inventory as CSV (hostname, DNS/CT source, DNS verification state and addresses) or copy hostnames. Discovered hostname URLs are also added to the ordinary crawl queue, subject to configured target filters, robots.txt and page budgets.
+
+The Go version checks DNS with the local resolver; Pages uses the public Google DNS-over-HTTPS JSON endpoint. Both attempt to suppress DNS wildcard false positives by comparing two synthetic lookup names. A DNS-confirmed name has an address record at check time, but a working HTTP service is **not** guaranteed. Historical CT records are labelled **CT historical**, not DNS-verified. Browser-only operation depends on network policy, public DoH availability and CORS; the optional extension or a connected Go engine can help when browser restrictions interfere. `github.io` is a multi-tenant public suffix, so enumeration of `github.io` may find projects operated by unrelated site owners rather than one organization's assets.
+
+Wordlists are capped at 200 KB / 5,000 unique valid prefixes, scoped to the supplied seed domains (up to five), with a 2,000-result cap and bounded concurrent DNS requests. This does not perform DNS zone transfers or guarantee exhaustive discovery; certificate logs may omit private or older names, and unusually large CT responses may be rejected (the DNS wordlist scan still operates). DNS queries and CT lookups are sent to external resolvers and certificate-log services. No third-party keys or centralized crawler proxy are needed for this feature.
+
+Programmatic Go API: pass `enumerateSubdomains`, `subdomainWords`, `subdomainUseBuiltIn`, `subdomainUseCT`, and `subdomainLimit` in `POST /api/start`. Follow discovery progress in `GET /api/status`, then export all hosts using `GET /api/subdomains?format=csv` (also `json` or `txt`).
+
 ## GitHub Pages client-side execution (experimental)
 
 The Pages dashboard now runs a JavaScript crawler **in the browser** when no Go engine is connected. No Go binary or external backend is needed for:
