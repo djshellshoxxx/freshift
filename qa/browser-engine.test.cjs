@@ -35,6 +35,8 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  assert(!matches.some(m=>m.matched==='KEYWORD_NEXT'),'depth=0 should not navigate');
  assert(!attempts.some(a=>a.url.includes('.ASX')),'excluded extension fetched');
  assert(matches.some(m=>m.url.includes('.DB')),'binary .db match absent');
+ ({state,matches}=await scan(cfg({maxPages:1})));
+ assert.equal(state.stats.pagesScanned,1,'global maxPages must cap resource fetching');
  ({matches}=await scan(cfg({searchMode:'visible',patterns:'keyword',depth:0})));
  assert(matches.some(m=>m.matched==='keyword'),'visible page text not searched');
  assert(!matches.some(m=>/KEYWORD_(CSS|JS|DB)/.test(m.matched)),'visible scanned linked sources');
