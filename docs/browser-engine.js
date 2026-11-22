@@ -185,6 +185,23 @@ class BrowserEngine {
      for(const item of (p==='hn'?json.hits:json.results)||[]){
       const url=p==='hn'?item.url:item.page?.url;if(url&&n++<(this.cfg.discoveryLimit||100))this.enqueue(url,p,0,false,p==='hn'?item.created_at:item.task?.time);
      }
+    }else if(p==='ct'){
+     // crt.sh observations are about certificate logs, not first web indexing.
+     for(const raw of lines(this.cfg.seeds).slice(0,12)){
+      let seeded;try{seeded=host(urlOf(raw))}catch{continue}
+      const endpoint='https://crt.sh/?q='+encodeURIComponent('%.'+seeded)+'&output=json';
+      const r=await this.fetch(endpoint);if(r.status!==200)throw Error('CT HTTP '+r.status);
+      let n=0;
+      for(const item of JSON.parse(r.body)||[]){
+       for(const rawHost of String(item.name_value||'').split(/\r?\n/)){
+        const name=rawHost.toLowerCase().replace(/^\*\./,'').trim();
+        if(!name||name!==seeded&&!name.endsWith('.'+seeded))continue;
+        this.enqueue('https://'+name+'/','ct',0,false,item.entry_timestamp||'');
+        if(++n>=(this.cfg.discoveryLimit||100))break;
+       }
+       if(n>=(this.cfg.discoveryLimit||100))break;
+      }
+     }
     }else if(p==='sitemap'||p==='rss'){
      for(const raw of lines(this.cfg.seeds).slice(0,20)){
       let endpoint;try{endpoint=new URL(p==='sitemap'?'/sitemap.xml':'/feed.xml',urlOf(raw)).href}catch{continue}
