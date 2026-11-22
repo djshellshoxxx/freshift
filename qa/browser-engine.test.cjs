@@ -58,6 +58,9 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  const localFilesMode=new BrowserEngine({fetchResource:async()=>{throw Error('Local file verification must not fetch')}});
  await localFilesMode.start(cfg({seeds:'',providers:[],searchMode:'files',patterns:'',fileTypes:'.db'}),[localFile]);
  assert(localFilesMode.allResults().some(x=>x.kind==='file'),'local file type detection missing');
+ const privateTarget=new BrowserEngine({fetchResource:async()=>{throw Error('Private target was contacted')}});
+ await privateTarget.start(cfg({seeds:'https://[::1]/',patterns:'KEYWORD',allowedTLDs:''}));
+ assert.equal(privateTarget.snapshot().stats.pagesScanned,0,'IPv6 loopback should be excluded');
  const cancelEngine=new BrowserEngine({fetchResource:mockTransport});cancelEngine.stop();assert.equal(cancelEngine.snapshot().stats.status,'idle');
  console.log('PASS: browser source assets, visible, filetypes, exclusions, robots, CORS reporting');
 })().catch(e=>{console.error(e);process.exitCode=1});
