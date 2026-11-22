@@ -103,6 +103,7 @@
         <div class="section-head"><span class="field-title">DNS &amp; reverse-IP research</span><span class="hint-link">ALL OPTIONAL</span></div>
         <div class="tick-list">
           <label><input type="checkbox" id="discoverDNSRecords"> Look up DNS records for seed domains and search their values</label>
+          <label><input type="checkbox" id="dnsOnly"> DNS-only scan (skip webpage fetching)</label>
           <label><input type="checkbox" id="reverseDNSPages"> Reverse DNS for IPs of crawled pages; scan forward-verified PTR hosts</label>
         </div>
         <label class="stack-field full-field"><span>Reverse-DNS page crawl depth</span><select id="reverseDNSPageDepth"><option value="0">PTR hostname only (0 links)</option><option value="1" selected>1 link level</option><option value="2">2 levels</option><option value="3">3 levels</option><option value="5">5 levels</option><option value="8">8 levels</option></select></label>
