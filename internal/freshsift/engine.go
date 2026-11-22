@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -274,12 +275,16 @@ func (q *taskQueue) add(c Candidate) bool {
 		return false
 	}
 	host := strings.ToLower(u.Hostname())
+	key := c.URL
+	if c.ReverseOrigin != "" {
+		key += "|reverse:" + c.ReverseOrigin + "|" + c.ReverseHost
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.closed || q.seen[c.URL] || len(q.seen) >= q.maxPages || q.hostCount[host] >= q.perHost {
+	if q.closed || q.seen[key] || len(q.seen) >= q.maxPages || q.hostCount[host] >= q.perHost {
 		return false
 	}
-	q.seen[c.URL] = true
+	q.seen[key] = true
 	q.hostCount[host]++
 	q.items = append(q.items, c)
 	q.outstanding++
@@ -669,14 +674,18 @@ func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *ht
 		return
 	}
 	if c.ReverseDNSPages && item.ReverseOrigin == "" && !item.Resource && !matchingFile && u.Scheme != "ftp" && ctx.Err() == nil {
-		if finalURL, parseErr := url.Parse(res.URL); parseErr == nil {
-			if ip, resolveErr := validatedTarget(ctx, finalURL.Hostname(), c.AllowPrivate); resolveErr == nil {
-				for _, reverse := range e.reverseIP(ctx, c, ip, "page", c.ReverseDNSPageDepth) {
-					if q.add(reverse) {
-						e.mu.Lock()
-						e.stats.Discovered++
-						e.mu.Unlock()
-					}
+		ip := net.ParseIP(res.RemoteIP)
+		if ip == nil {
+			if finalURL, parseErr := url.Parse(res.URL); parseErr == nil {
+				ip, _ = validatedTarget(ctx, finalURL.Hostname(), c.AllowPrivate)
+			}
+		}
+		if ip != nil {
+			for _, reverse := range e.reverseIP(ctx, c, ip, "page", c.ReverseDNSPageDepth) {
+				if q.add(reverse) {
+					e.mu.Lock()
+					e.stats.Discovered++
+					e.mu.Unlock()
 				}
 			}
 		}
