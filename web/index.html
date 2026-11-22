@@ -9,6 +9,7 @@
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="stylesheet" href="./style.css">
 <script src="./subdomains.js" defer></script>
+<script src="./dns-intel.js" defer></script>
 <script src="./browser-engine.js" defer></script>
 <script src="./app.js" defer></script>
 </head>
@@ -87,13 +88,28 @@
         <div class="section-head"><span class="field-title">Subdomain enumeration</span><span class="hint-link">OPTIONAL · SEED DOMAINS</span></div>
         <div class="tick-list">
           <label><input type="checkbox" id="enumerateSubdomains"> Discover subdomains of starting hosts</label>
-          <label><input type="checkbox" id="subdomainUseBuiltIn" checked> Use built-in common subdomain wordlist</label>
+          <label><input type="checkbox" id="subdomainGuess" checked> Brute-force DNS using built-in / custom prefix guesses</label>
+          <label><input type="checkbox" id="subdomainUseBuiltIn" checked> Include built-in common subdomain wordlist</label>
           <label><input type="checkbox" id="subdomainUseCT" checked> Include historical certificate-transparency names</label>
         </div>
         <label class="stack-field full-field"><span>Custom subdomain words <em>(prefixes only)</em></span><textarea id="subdomainWords" rows="3" spellcheck="false" placeholder="dev&#10;staging&#10;api&#10;test"></textarea></label>
         <div class="file-row"><button id="subdomainImportBtn" class="text-action" type="button">＋ Import subdomain TXT / CSV</button><input id="subdomainFile" type="file" accept=".txt,.csv,.list,.tsv" hidden><span class="file-hint" id="subdomainWordCount">Built-in: common names</span></div>
         <label class="stack-field full-field"><span>Maximum discovered subdomains</span><select id="subdomainLimit"><option value="50">50</option><option value="100">100</option><option value="250" selected>250</option><option value="500">500</option><option value="1000">1,000</option><option value="2000">2,000</option></select></label>
         <div class="note">Word guesses are DNS-checked; wildcard DNS responses are filtered. Certificate records may be historical and no longer resolve. On Pages, DNS uses HTTPS DNS APIs (CORS/network access required). Discovered hosts join the normal crawl queue within the scan limits. For multi-tenant roots such as github.io, results may belong to unrelated users.</div>
+      </section>
+
+      <section class="form-section discovery" id="dnsIntelOptions">
+        <div class="section-head"><span class="field-title">DNS &amp; reverse-IP research</span><span class="hint-link">ALL OPTIONAL</span></div>
+        <div class="tick-list">
+          <label><input type="checkbox" id="discoverDNSRecords"> Look up DNS records for seed domains and search their values</label>
+          <label><input type="checkbox" id="reverseDNSPages"> Reverse DNS for IPs of crawled pages; scan forward-verified PTR hosts</label>
+        </div>
+        <label class="stack-field full-field"><span>Reverse-DNS page crawl depth</span><select id="reverseDNSPageDepth"><option value="0">PTR hostname only (0 links)</option><option value="1" selected>1 link level</option><option value="2">2 levels</option><option value="3">3 levels</option><option value="5">5 levels</option><option value="8">8 levels</option></select></label>
+        <div class="tick-list">
+          <label><input type="checkbox" id="reverseDNSSubdomains"> Reverse DNS on discovered subdomains with different DNS IPs from their seed domain</label>
+        </div>
+        <label class="stack-field full-field"><span>Reverse-DNS subdomain crawl depth</span><select id="reverseDNSSubdomainDepth"><option value="0">PTR hostname only (0 links)</option><option value="1" selected>1 link level</option><option value="2">2 levels</option><option value="3">3 levels</option><option value="5">5 levels</option><option value="8">8 levels</option></select></label>
+        <div class="note">PTR records identify configured DNS hostnames, not all websites sharing an IP. Forward-confirmed PTR names are added as new seeds (subject to scope filters, robots rules and scan limits). DNS-resolved IPs may differ from the HTTP connection's actual peer, especially behind CDNs. In Pages, DNS lookups require DNS-over-HTTPS access.</div>
       </section>
 
       <details class="advanced" id="advanced"><summary>Scan limits &amp; crawl controls <span class="summary-arrow">⌄</span></summary>
@@ -177,6 +193,21 @@
           <div class="subdomain-toolbar"><input id="subdomainFilter" type="search" placeholder="Filter hostnames or source…" aria-label="Filter discovered subdomains"><button id="subdomainCopy" type="button" class="btn btn-ghost btn-small">Copy hosts</button><button id="subdomainExport" type="button" class="btn btn-outline btn-small">Export subdomains CSV</button></div>
           <div id="subdomainResults" class="subdomain-list" aria-label="Discovered subdomain inventory">Subdomains will appear here when enumeration is enabled.</div>
           <p class="note">DNS = currently resolves; CT = certificate record only (not verified as live). Results are separate from matched webpage excerpts.</p>
+        </div>
+      </details>
+      <details class="bottom-panel dns-record-panel" open>
+        <summary><span class="eyebrow">DNS RESOURCE RECORDS</span><strong>DNS records <span class="count" id="dnsRecordCount">0</span></strong><span class="summary-arrow">⌄</span></summary>
+        <div class="subdomain-content">
+          <div class="subdomain-toolbar"><input id="dnsRecordFilter" type="search" placeholder="Filter record type, domain or value…" aria-label="Filter DNS records"><button type="button" id="dnsRecordExport" class="btn btn-outline btn-small">Export DNS CSV</button></div>
+          <div id="dnsRecordResults" class="subdomain-list">Enable DNS record lookup to populate this inventory.</div>
+        </div>
+      </details>
+      <details class="bottom-panel reverse-dns-panel" open>
+        <summary><span class="eyebrow">FORWARD-CONFIRMED PTR</span><strong>Reverse DNS hosts <span class="count" id="reverseDNSCount">0</span></strong><span class="summary-arrow">⌄</span></summary>
+        <div class="subdomain-content">
+          <div class="subdomain-toolbar"><input id="reverseDNSFilter" type="search" placeholder="Filter PTR hostname, IP or source…" aria-label="Filter reverse DNS hostnames"><button type="button" id="reverseDNSExport" class="btn btn-outline btn-small">Export PTR CSV</button></div>
+          <div id="reverseDNSResults" class="subdomain-list">Enable reverse DNS to collect forward-confirmed PTR hosts.</div>
+          <p class="note">PTR hosts are not an exhaustive list of shared-IP sites. Two independent depth limits govern linked pages opened from page-derived and subdomain-derived PTR seeds.</p>
         </div>
       </details>
       <footer class="footer"><span>FRESHSIFT v0.3.0 · CIRCUIT DRIFT LABS · GO ENGINE + PAGES</span><span>Manual URLs have unknown index age · Feed timestamps are source observations · CSV includes matched text and URL</span></footer>
