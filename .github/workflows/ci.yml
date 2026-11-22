@@ -30,6 +30,7 @@ jobs:
           node qa/pages-parity.test.cjs
           node qa/browser-engine.test.cjs
           node qa/extension-contract.test.cjs
+          node qa/browser-bridge.test.cjs
       - name: End-to-end local HTTP API smoke tests
         run: |
           go build -o /tmp/freshsift-ci .
