@@ -200,7 +200,38 @@ class BrowserEngine {
    this.onUpdate(this.snapshot());
   }}finally{this.stats.activeWorkers--}
  }
- async start(config){
+ async scanLocal(files){
+  for(const file of files){
+   if(this.cancelled)break;
+   const url='local-file://input/'+encodeURIComponent(file.name);
+   const c={url,source:'local-file',observedAt:''};
+   if(Number(file.size)>8388608){this.error(file.name,Error('Local file exceeds 8 MiB'));continue}
+   if(exts(this.cfg.excludeFileTypes).some(x=>file.name.toLowerCase().endsWith(x)))continue;
+   if(this.cfg.searchMode==='files'){
+    const ext=exts(this.cfg.fileTypes).find(x=>file.name.toLowerCase().endsWith(x));
+    if(ext)this.addMatch(c,'',ext,'','','file',200);
+    continue;
+   }
+   try{
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    if(bytes.byteLength>8388608)throw Error('Local file exceeds 8 MiB');
+    const useText=/\.(?:html?|xml|css|m?js|txt|json|csv|svg)$/i.test(file.name);
+    const text=new TextDecoder(useText?'utf-8':'latin1').decode(bytes);
+    const hay=this.cfg.searchMode==='visible'?visible(text):text;
+    this.stats.pagesScanned++;this.stats.bytesScanned+=bytes.byteLength;this.stats.textBytes+=text.length;
+    let found=0;
+    for(const p of this.patterns){p.re.lastIndex=0;let m;
+     while((m=p.re.exec(hay))&&found++<200){
+      const a=m.index,b=a+m[0].length;
+      this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',200);
+      if(!m[0])p.re.lastIndex++;
+     }
+    }
+    this.onUpdate(this.snapshot());
+   }catch(e){this.error(file.name,e)}
+  }
+ }
+ async start(config,localFiles=[]){
   if(this.running)throw Error('A scan is already running');
   this.reset();
   this.cfg={searchMode:'source',seeds:'',patterns:'',depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
@@ -208,10 +239,11 @@ class BrowserEngine {
   if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
   if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length)throw Error('Enter search phrase');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
-  if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length)throw Error('Enter targets or enable discovery');
+  if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
   this.log('Browser crawl started (direct requests need CORS or optional extension).');
   try{
+   await this.scanLocal(localFiles);
    for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
    await this.discover();
    await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
