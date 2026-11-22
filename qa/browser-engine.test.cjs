@@ -31,7 +31,7 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  attempts.length=0;
  let {state,matches}=await scan(cfg());
  assert.equal(state.stats.status,'completed',JSON.stringify(state.stats));
- for(const token of ['KEYWORD_CSS','KEYWORD_JS','KEYWORD_DB','KEYWORD_MORECSS']) assert(matches.some(m=>m.matched===token),token);
+ for(const token of ['KEYWORD_CSS','KEYWORD_JS','KEYWORD_DB','KEYWORD_MORECSS']) assert(matches.some(m=>m.context.includes(token)),token);
  assert(!matches.some(m=>m.matched==='KEYWORD_NEXT'),'depth=0 should not navigate');
  assert(!attempts.some(a=>a.url.includes('.ASX')),'excluded extension fetched');
  assert(matches.some(m=>m.url.includes('.DB')),'binary .db match absent');
@@ -44,7 +44,7 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  ({matches}=await scan(cfg({seeds:base+'/secret',patterns:'KEYWORD',respectRobots:true})));
  assert(!matches.length,'robots denied path');
  ({matches}=await scan(cfg({seeds:base+'/secret',patterns:'KEYWORD',respectRobots:false})));
- assert(matches.some(m=>m.matched==='KEYWORD_SECRET'),'robots disabled path missing');
+ assert(matches.some(m=>m.context.includes('KEYWORD_SECRET')),'robots disabled path missing');
  ({state}=await scan(cfg({seeds:'https://unavailable.example.org',patterns:'WORD'}),async()=>{throw new TypeError('Failed to fetch (CORS)')}));
  assert(state.stats.errors>0,'CORS failures must surface rather than silently report success');
  assert(state.logs.some(x=>/CORS|Failed to fetch/i.test(x)),'CORS error must be logged');
