@@ -160,8 +160,8 @@ func (e *Engine) Snapshot() Snapshot {
 	if len(s.URLs) > 500 {
 		s.URLs = s.URLs[:500]
 	}
-	if len(s.Subdomains) > 500 {
-		s.Subdomains = s.Subdomains[:500]
+	if len(s.Subdomains) > 2000 {
+		s.Subdomains = s.Subdomains[:2000]
 	}
 	return s
 }
