@@ -3,6 +3,9 @@ package freshsift
 import (
 	"context"
 	"net"
+ "net/http"
+ "net/http/httptest"
+ "time"
 	"strings"
 	"testing"
 )
@@ -109,4 +112,23 @@ func TestDifferentIPsRejectsSharedAddress(t *testing.T) {
 	if len(got) != 1 || got[0].String() != "9.9.9.9" {
 		t.Fatalf("wrong changed address result: %v", got)
 	}
+}
+
+func TestFetchPageCapturesConnectedPeerIP(t *testing.T){
+ server:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){w.WriteHeader(200);_,_=w.Write([]byte("ok"))}))
+ defer server.Close()
+ got,err:=fetchPage(context.Background(),newHTTPClient(5*time.Second,true),server.URL)
+ if err!=nil{t.Fatal(err)}
+ if ip:=net.ParseIP(got.RemoteIP);ip==nil||!ip.IsLoopback(){t.Fatalf("missing connected peer IP: %+v",got)}
+}
+
+func TestReverseQueueCanRevisitOriginalHostnameWithIndependentDepth(t *testing.T){
+ q:=newQueue(12,12)
+ a:=Candidate{URL:"https://ptr.example.org/",Source:"manual"}
+ b:=Candidate{URL:"https://ptr.example.org/",Source:"reverse-ptr-page",ReverseOrigin:"page",ReverseHost:"ptr.example.org",ReverseDepth:2}
+ if !q.add(a)||!q.add(b){t.Fatal("reverse origin must retain independent crawl branch")}
+ if q.add(b){t.Fatal("duplicate reverse branch must be rejected")}
+ first,_:=q.next();second,_:=q.next()
+ if first.ReverseOrigin!=""||second.ReverseOrigin!="page"{t.Fatalf("wrong branch order %+v %+v",first,second)}
+ q.done();q.done()
 }
