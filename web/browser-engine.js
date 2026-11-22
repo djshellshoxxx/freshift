@@ -366,9 +366,9 @@ class BrowserEngine {
    if(!Number.isInteger(val)||val<0||val>8)throw Error('Reverse DNS crawl depth must be between 0 and 8');
    this.cfg[key]=val;
   }
-  if(this.cfg.reverseDNSSubdomains&&!this.cfg.enumerateSubdomains)throw Error('Enable subdomain enumeration before subdomain PTR discovery');
+  if(!this.cfg.dnsOnly&&this.cfg.reverseDNSSubdomains&&!this.cfg.enumerateSubdomains)throw Error('Enable subdomain enumeration before subdomain PTR discovery');
   if(this.cfg.dnsOnly&&!this.cfg.discoverDNSRecords)throw Error('DNS-only mode requires DNS record lookup');
-  if(this.cfg.enumerateSubdomains&&!this.cfg.subdomainGuess&&!this.cfg.subdomainUseCT)throw Error('Select subdomain guessing and/or certificate logs');
+  if(!this.cfg.dnsOnly&&this.cfg.enumerateSubdomains&&!this.cfg.subdomainGuess&&!this.cfg.subdomainUseCT)throw Error('Select subdomain guessing and/or certificate logs');
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
   if(this.cfg.searchMode==='files'&&!this.cfg.dnsOnly&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
   if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains&&!this.cfg.discoverDNSRecords&&!this.cfg.reverseDNSPages)throw Error('Enter search phrase or enable DNS discovery');
