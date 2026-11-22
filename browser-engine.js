@@ -79,7 +79,7 @@ class BrowserEngine {
  constructor({fetchResource=nativeFetch,onUpdate=()=>{}}={}){this.transport=fetchResource;this.onUpdate=onUpdate;this.reset()}
  reset(){
   this.running=false;this.paused=false;this.cancelled=false;this.queue=[];this.seen=new Set();this.hostCounts=new Map();this.robots=new Map();
-  this.matches=[];this.urls=new Map();this.logs=[];this.signal=null;
+  this.matches=[];this.urls=new Map();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
   this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
  }
  snapshot(){
@@ -107,6 +107,10 @@ class BrowserEngine {
  }
  enqueue(raw,source='manual',depth=0,asset=false,observedAt=''){
   let url;try{url=urlOf(raw)}catch(e){this.log('Skipped '+String(raw).slice(0,80)+': '+e.message);return}
+  if(observedAt&&source!=='manual'&&source!=='linked'&&Number(this.cfg.recentHours)>0){
+   const recorded=Date.parse(observedAt);
+   if(Number.isFinite(recorded)&&Date.now()-recorded>Number(this.cfg.recentHours)*3600000)return;
+  }
   if(this.seen.has(url)||!this.allow(url)||this.seen.size>=this.cfg.maxPages*10)return;
   this.seen.add(url);this.queue.push({url,source,depth,asset,observedAt});this.stats.discovered++;
  }
@@ -142,6 +146,8 @@ class BrowserEngine {
  }
  async handle(c){
   const u=new URL(c.url),h=u.hostname,count=this.hostCounts.get(h)||0;
+  if(!this.hostStarted.has(h))this.hostStarted.set(h,Date.now());
+  if(Number(this.cfg.siteMinutes)>0&&Date.now()-this.hostStarted.get(h)>Number(this.cfg.siteMinutes)*60000){this.stats.skipped++;return}
   if(count>=this.cfg.maxPagesPerHost){this.stats.skipped++;return}
   this.hostCounts.set(h,count+1);
   if(!await this.mayCrawl(c.url)){this.stats.skipped++;return}
@@ -195,8 +201,13 @@ class BrowserEngine {
   try{while(!this.cancelled){
    while(this.paused&&!this.cancelled)await new Promise(r=>setTimeout(r,75));
    if(this.cancelled)break;
+   if(this.processed>=this.cfg.maxPages){this.stats.skipped+=this.queue.length;this.queue.length=0;break}
    const c=this.queue.shift();if(!c)break;
+   const h=host(c.url),limit=Math.max(1,Number(this.cfg.perHostConcurrency)||2);
+   if((this.hostActive.get(h)||0)>=limit){this.queue.push(c);await new Promise(r=>setTimeout(r,40));continue}
+   this.processed++;this.hostActive.set(h,(this.hostActive.get(h)||0)+1);
    try{await this.handle(c)}catch(e){this.error(c.url,e)}
+   finally{this.hostActive.set(h,Math.max(0,(this.hostActive.get(h)||0)-1))}
    this.onUpdate(this.snapshot());
   }}finally{this.stats.activeWorkers--}
  }
@@ -234,7 +245,15 @@ class BrowserEngine {
  async start(config,localFiles=[]){
   if(this.running)throw Error('A scan is already running');
   this.reset();
-  this.cfg={searchMode:'source',seeds:'',patterns:'',depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
+  this.cfg={searchMode:'source',seeds:'',patterns:'',depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
+  this.cfg.maxPages=Math.max(1,Math.min(100000,Number(this.cfg.maxPages)||1000));
+  this.cfg.maxPagesPerHost=Math.max(1,Math.min(10000,Number(this.cfg.maxPagesPerHost)||80));
+  this.cfg.perHostConcurrency=Math.max(1,Math.min(10,Number(this.cfg.perHostConcurrency)||2));
+  if(this.cfg.budgetMode==='timer'){
+   this.cfg.depth=8;this.cfg.maxPathSegments=50;this.cfg.maxPagesPerHost=10000;
+   if(!Number(this.cfg.siteMinutes))throw Error('Timer mode requires a per-site minute limit');
+  }
+  this.cfg.depth=Math.max(0,Math.min(8,Number(this.cfg.depth)||0));
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
   if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
   if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length)throw Error('Enter search phrase');
