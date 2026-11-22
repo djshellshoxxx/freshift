@@ -4,7 +4,7 @@
 const SOURCE='https://djshellshoxxx.github.io/freshift/';
 const MAX=8*1024*1024;
 function privateHost(host) {
- host=host.toLowerCase();
+ host=host.toLowerCase().replace(/^\[|\]$/g,'');
  return host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host==='::1'||
   /^127\./.test(host)||/^10\./.test(host)||/^192\.168\./.test(host)||
   /^169\.254\./.test(host)||/^172\.(1[6-9]|2\d|3[01])\./.test(host)||
