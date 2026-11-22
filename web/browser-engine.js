@@ -5,7 +5,7 @@ const MAX_BYTES=8388608;
 const lines=x=>String(x||'').split(/[\n\r,]+/).map(s=>s.trim()).filter(Boolean);
 const exts=x=>lines(x).map(s=>s.toLowerCase().startsWith('.')?s.toLowerCase():'.'+s.toLowerCase());
 const host=u=>new URL(u).hostname.toLowerCase();
-const local=h=>h==='localhost'||h.endsWith('.localhost')||h.endsWith('.local')||h==='::1'||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||/^169\.254\./.test(h)||/^172\.(1[6-9]|2\d|3[01])\./.test(h)||/^0\./.test(h)||/^fc|^fd|^fe80:/i.test(h);
+const local=raw=>{const h=raw.toLowerCase().replace(/^\[|\]$/g,'');return h==='localhost'||h.endsWith('.localhost')||h.endsWith('.local')||h==='::1'||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||/^169\.254\./.test(h)||/^172\.(1[6-9]|2\d|3[01])\./.test(h)||/^0\./.test(h)||/^fc|^fd|^fe80:/i.test(h)};
 const pathMatch=(url,ends)=>ends.some(ext=>new URL(url).pathname.toLowerCase().endsWith(ext));
 function urlOf(input,base){
  let u;try{u=new URL(input,base)}catch{u=new URL('https://'+input)}
@@ -49,7 +49,7 @@ async function nativeFetch(url,opt={}){
  if(opt.signal?.aborted)ctl.abort();
  const timer=setTimeout(()=>ctl.abort(),Math.max(2000,Number(opt.timeoutSeconds||12)*1000));
  try{
-  const r=await fetch(url,{method:opt.method||'GET',headers:opt.headers||{},credentials:'omit',mode:'cors',redirect:'follow',cache:'no-store',signal:ctl.signal});
+  const r=await fetch(url,{method:opt.method||'GET',headers:opt.headers||{},credentials:'omit',mode:'cors',redirect:'error',cache:'no-store',signal:ctl.signal});
   if(r.type==='opaque')throw Error('CORS: opaque response');
   if((opt.method||'GET')==='HEAD')return {url:r.url,status:r.status,type:r.headers.get('content-type')||'',body:''};
   if(Number(r.headers.get('content-length'))>MAX_BYTES)throw Error('Body exceeds 8 MiB');
@@ -97,7 +97,7 @@ class BrowserEngine {
   if(pathMatch(url,exts(c.excludeFileTypes)))return false;
   const tlds=exts(c.allowedTLDs);
   if(tlds.length&&(!h.includes('.')||!tlds.some(t=>h.endsWith(t))))return false;
-  const allowed=lines(c.allowDomains),denied=lines(c.excludeDomains);
+  const allowed=lines(c.allowDomains).map(x=>x.toLowerCase()),denied=lines(c.excludeDomains).map(x=>x.toLowerCase());
   if(allowed.length&&!allowed.some(x=>h===x||h.endsWith('.'+x)))return false;
   if(denied.some(x=>h===x||h.endsWith('.'+x)))return false;
   if(c.urlContains&&!url.includes(c.urlContains))return false;
