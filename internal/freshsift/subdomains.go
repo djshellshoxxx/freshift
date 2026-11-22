@@ -518,9 +518,13 @@ func resolveWordlist(ctx context.Context, root string, words []string, limit int
             }
         }()
     }
+sendWords:
     for _, word := range words {
-        if ctx.Err() != nil { break }
-        jobs <- word
+        select {
+        case <-ctx.Done():
+            break sendWords
+        case jobs <- word:
+        }
     }
     close(jobs)
     workers.Wait()
