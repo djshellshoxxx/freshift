@@ -411,6 +411,7 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 		}
 	}
 	if ctx.Err()!=nil{return}
+	if c.DNSOnly {e.log("DNS-only scan complete; HTTP crawling skipped");return}
 	if c.EnumerateSubdomains {
 		e.log("Subdomain discovery: DNS wordlist and historical CT names for seed domains")
 		found, err := discoverSubdomains(ctx, c, seeds, discoveryClient, e.recordSubdomain, log)
