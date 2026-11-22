@@ -3,6 +3,7 @@
 'use strict';
 const MAX_BYTES=8388608;
 const subdomainTools=root.FreshSiftSubdomains||(typeof require==='function'?require('./subdomains.js'):null);
+const dnsTools=root.FreshSiftDNSIntel||(typeof require==='function'?require('./dns-intel.js'):null);
 const lines=x=>String(x||'').split(/[\n\r,]+/).map(s=>s.trim()).filter(Boolean);
 const exts=x=>lines(x).map(s=>s.toLowerCase().startsWith('.')?s.toLowerCase():'.'+s.toLowerCase());
 const host=u=>new URL(u).hostname.toLowerCase();
@@ -80,17 +81,92 @@ class BrowserEngine {
  constructor({fetchResource=nativeFetch,onUpdate=()=>{}}={}){this.transport=fetchResource;this.onUpdate=onUpdate;this.reset()}
  reset(){
   this.running=false;this.paused=false;this.cancelled=false;this.queue=[];this.seen=new Set();this.hostCounts=new Map();this.robots=new Map();
-  this.matches=[];this.urls=new Map();this.subdomains=new Map();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
-  this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,subdomains:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
+  this.matches=[];this.urls=new Map();this.subdomains=new Map();this.dnsRecords=new Map();this.reverseDNS=new Map();
+  this.reverseSeen=new Set();this.reverseLookupHosts=new Set();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
+  this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,subdomains:0,dnsRecords:0,reverseHosts:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
  }
  snapshot(){
   const stats={...this.stats};stats.queued=this.queue.length;
   if(stats.startedAt){stats.elapsedSeconds=((stats.finishedAt?Date.parse(stats.finishedAt):Date.now())-Date.parse(stats.startedAt))/1000;stats.pagesPerMinute=stats.elapsedSeconds>0?stats.pagesScanned*60/stats.elapsedSeconds:0}
   stats.MBScanned=stats.bytesScanned/1048576;stats.textMB=stats.textBytes/1048576;
-  return {stats,urls:[...this.urls.values()],subdomains:[...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname)).slice(0,2000),matches:this.matches.slice(-500),logs:[...this.logs]};
+  return {stats,urls:[...this.urls.values()],subdomains:[...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname)).slice(0,2000),dnsRecords:[...this.dnsRecords.values()],reverseDNS:[...this.reverseDNS.values()],matches:this.matches.slice(-500),logs:[...this.logs]};
  }
  allResults(){return [...this.matches]}
  allSubdomains(){return [...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname))}
+ allDNSRecords(){return [...this.dnsRecords.values()]}
+ allReverseDNS(){return [...this.reverseDNS.values()]}
+ addDNSRecord(row){
+  const key=row.domain+'|'+row.type+'|'+row.value;
+  if(this.dnsRecords.has(key))return;
+  this.dnsRecords.set(key,row);this.stats.dnsRecords=this.dnsRecords.size;
+  const c={url:'https://'+row.domain+'/',source:'dns-record',observedAt:''};
+  for(const p of this.patterns){
+   p.re.lastIndex=0;let m,i=0;
+   while((m=p.re.exec(row.value))&&i++<30){
+    const a=m.index,b=a+m[0].length;
+    this.addMatch(c,p.text,m[0],row.type+' '+row.value.slice(Math.max(0,a-70),a),row.value.slice(b,b+70),'dns',200);
+    if(!m[0])p.re.lastIndex++;
+   }
+  }
+ }
+ async discoverDNS(){
+  if(!this.cfg.discoverDNSRecords)return;
+  if(!dnsTools)throw Error('DNS intelligence module is missing');
+  const roots=[...new Set(lines(this.cfg.seeds).map(x=>subdomainTools.rootOf(x)).filter(Boolean))].slice(0,5);
+  for(const name of roots){
+   if(this.cancelled)break;
+   try{
+    const rows=await dnsTools.lookupRecords(name,url=>this.fetch(url));
+    for(const row of rows)this.addDNSRecord(row);
+    this.log('DNS '+name+': '+rows.length+' records collected');
+   }catch(e){this.error('DNS '+name,e)}
+  }
+ }
+ async reverseIP(ip,origin,budget){
+  if(!dnsTools||!dnsTools.isPublicIP(ip)||this.cancelled)return;
+  const id=origin+'|'+ip;
+  if(this.reverseSeen.has(id)||this.reverseSeen.size>=64)return;
+  this.reverseSeen.add(id);
+  try{
+   const names=await dnsTools.verifiedPTR(ip,url=>this.fetch(url));
+   for(const hostname of names){
+    const key=id+'|'+hostname;
+    if(!this.reverseDNS.has(key)){
+     this.reverseDNS.set(key,{ip,hostname,origin,verified:true});
+     this.stats.reverseHosts=this.reverseDNS.size;
+    }
+    this.enqueue('https://'+hostname+'/','reverse-ptr-'+origin,0,false,'',
+      {reverseOrigin:origin,reverseHost:hostname,reverseDepth:budget});
+   }
+  }catch(e){this.log('Reverse DNS '+ip+': '+e.message)}
+ }
+ async reverseFromPage(c,r){
+  if(!this.cfg.reverseDNSPages||c.reverseOrigin||c.asset)return;
+  const hostname=host(r.url||c.url);
+  if(this.reverseLookupHosts.has(hostname)||this.reverseLookupHosts.size>=64)return;
+  this.reverseLookupHosts.add(hostname);
+  if(!dnsTools)return;
+  try{
+   const ips=await dnsTools.lookupAddresses(hostname,url=>this.fetch(url));
+   for(const ip of ips.slice(0,2))await this.reverseIP(ip,'page',this.cfg.reverseDNSPageDepth);
+  }catch(e){this.log('Page DNS '+hostname+': '+e.message)}
+ }
+ async reverseFromSubdomains(){
+  if(!this.cfg.reverseDNSSubdomains||!dnsTools)return;
+  const roots=[...new Set(lines(this.cfg.seeds).map(x=>subdomainTools.rootOf(x)).filter(Boolean))].slice(0,5);
+  let checked=0;
+  for(const row of this.allSubdomains()){
+   if(this.cancelled||checked>=64)break;
+   const root=roots.filter(x=>row.hostname.endsWith('.'+x)).sort((a,b)=>b.length-a.length)[0];
+   if(!root)continue;
+   checked++;
+   try{
+    const ips=await dnsTools.differentSubdomainIPs(root,row.hostname,url=>this.fetch(url));
+    for(const ip of ips.slice(0,2))await this.reverseIP(ip,'subdomain',this.cfg.reverseDNSSubdomainDepth);
+   }catch(e){this.log('Subdomain reverse DNS '+row.hostname+': '+e.message)}
+  }
+ }
+
  addSubdomain(row){
   const old=this.subdomains.get(row.hostname);
   if(old?.verified&&!row.verified)return;
@@ -115,14 +191,14 @@ class BrowserEngine {
   if(u.pathname.split('/').filter(Boolean).length>Number(c.maxPathSegments||50))return false;
   return true;
  }
- enqueue(raw,source='manual',depth=0,asset=false,observedAt=''){
+ enqueue(raw,source='manual',depth=0,asset=false,observedAt='',reverse={}){
   let url;try{url=urlOf(raw)}catch(e){this.log('Skipped '+String(raw).slice(0,80)+': '+e.message);return}
   if(observedAt&&source!=='manual'&&source!=='linked'&&Number(this.cfg.recentHours)>0){
    const recorded=Date.parse(observedAt);
    if(Number.isFinite(recorded)&&Date.now()-recorded>Number(this.cfg.recentHours)*3600000)return;
   }
   if(this.seen.has(url)||!this.allow(url)||this.seen.size>=this.cfg.maxPages*10)return;
-  this.seen.add(url);this.queue.push({url,source,depth,asset,observedAt});this.stats.discovered++;
+  this.seen.add(url);this.queue.push({url,source,depth,asset,observedAt,...reverse});this.stats.discovered++;
  }
  async fetch(url,method='GET',headers={}){
   return this.transport(url,{method,headers,timeoutSeconds:this.cfg.timeoutSeconds,signal:this.signal?.signal,allowPrivate:!!this.cfg.allowPrivate});
@@ -168,6 +244,7 @@ class BrowserEngine {
   if(this.cfg.status2xxOnly&&r.status>299)return;
   const body=String(r.body||''),type=r.type||'',isHTML=/html/i.test(type)||/<html\b/i.test(body.slice(0,512));
   this.stats.pagesScanned++;this.stats.bytesScanned+=Number(r.size)||body.length;this.stats.textBytes+=body.length;this.stats.lastUrl=c.url;
+  await this.reverseFromPage(c,r);
   if(this.cfg.searchMode!=='files'&&(this.cfg.searchMode==='source'||isHTML||/text\/plain/i.test(type))){
    const hay=this.cfg.searchMode==='visible'&&isHTML?visible(body):body;let count=0;
    for(const p of this.patterns){p.re.lastIndex=0;let m;
@@ -180,9 +257,11 @@ class BrowserEngine {
   if(this.cfg.searchMode==='visible')return;
   for(const l of references(body,r.url||c.url,type)){
    const asset=l.asset||pathMatch(l.url,exts(this.cfg.fileTypes))||/\.(?:css|js|mjs|json|db|png|jpe?g|gif|svg|txt|pdf|xml)$/i.test(new URL(l.url).pathname);
-   if(!asset&&c.depth>=this.cfg.depth)continue;
+   if(!asset&&c.depth>=(c.reverseOrigin?c.reverseDepth:this.cfg.depth))continue;
+   if(c.reverseOrigin&&host(l.url)!==c.reverseHost)continue;
    if(!asset&&!this.cfg.followExternal&&host(l.url)!==h)continue;
-   this.enqueue(l.url,'linked',c.depth+(asset?0:1),asset,c.observedAt);
+   this.enqueue(l.url,'linked',c.depth+(asset?0:1),asset,c.observedAt,
+    c.reverseOrigin?{reverseOrigin:c.reverseOrigin,reverseHost:c.reverseHost,reverseDepth:c.reverseDepth}:{});
   }
  }
  async discover(){
@@ -272,7 +351,7 @@ class BrowserEngine {
  async start(config,localFiles=[]){
   if(this.running)throw Error('A scan is already running');
   this.reset();
-  this.cfg={searchMode:'source',seeds:'',patterns:'',depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
+  this.cfg={searchMode:'source',seeds:'',patterns:'',subdomainGuess:true,depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
   this.cfg.maxPages=Math.max(1,Math.min(100000,Number(this.cfg.maxPages)||1000));
   this.cfg.maxPagesPerHost=Math.max(1,Math.min(10000,Number(this.cfg.maxPagesPerHost)||80));
   this.cfg.perHostConcurrency=Math.max(1,Math.min(10,Number(this.cfg.perHostConcurrency)||2));
@@ -281,23 +360,37 @@ class BrowserEngine {
    if(!Number(this.cfg.siteMinutes))throw Error('Timer mode requires a per-site minute limit');
   }
   this.cfg.depth=Math.max(0,Math.min(8,Number(this.cfg.depth)||0));
+  for(const key of ['reverseDNSPageDepth','reverseDNSSubdomainDepth']){
+   const val=Number(this.cfg[key]||0);
+   if(!Number.isInteger(val)||val<0||val>8)throw Error('Reverse DNS crawl depth must be between 0 and 8');
+   this.cfg[key]=val;
+  }
+  if(this.cfg.reverseDNSSubdomains&&!this.cfg.enumerateSubdomains)throw Error('Enable subdomain enumeration before subdomain PTR discovery');
+  if(this.cfg.dnsOnly&&!this.cfg.discoverDNSRecords)throw Error('DNS-only mode requires DNS record lookup');
+  if(this.cfg.enumerateSubdomains&&!this.cfg.subdomainGuess&&!this.cfg.subdomainUseCT)throw Error('Select subdomain guessing and/or certificate logs');
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
-  if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
-  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains)throw Error('Enter search phrase or enable subdomain enumeration');
+  if(this.cfg.searchMode==='files'&&!this.cfg.dnsOnly&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
+  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains&&!this.cfg.discoverDNSRecords&&!this.cfg.reverseDNSPages)throw Error('Enter search phrase or enable DNS discovery');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
   if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
   this.log('Browser crawl started (direct requests need CORS or optional extension).');
   try{
+   if(this.cfg.dnsOnly){
+    await this.discoverDNS();
+   }else{
    await this.scanLocal(localFiles);
    for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
+   await this.discoverDNS();
    if(this.cfg.enumerateSubdomains){
     if(!subdomainTools)throw Error('Subdomain discovery module is missing');
     await subdomainTools.discover({config:this.cfg,fetchResource:url=>this.fetch(url),
       report:row=>this.addSubdomain(row),log:msg=>this.log(msg),signal:this.signal.signal});
    }
+   await this.reverseFromSubdomains();
    await this.discover();
    await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
+   }
    this.stats.status=this.cancelled?'cancelled':'completed';
   }finally{this.running=false;this.stats.finishedAt=new Date().toISOString();this.onUpdate(this.snapshot())}
   return this.snapshot();
