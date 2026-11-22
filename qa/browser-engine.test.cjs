@@ -61,6 +61,31 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  const privateTarget=new BrowserEngine({fetchResource:async()=>{throw Error('Private target was contacted')}});
  await privateTarget.start(cfg({seeds:'https://[::1]/',patterns:'KEYWORD',allowedTLDs:''}));
  assert.equal(privateTarget.snapshot().stats.pagesScanned,0,'IPv6 loopback should be excluded');
+ // Subdomain enumeration: imported guesses, wildcard DNS suppression and CSV-ready inventory.
+ const subdomains=require('../web/subdomains.js');
+ assert.deepEqual(subdomains.parseWords('Api, www\nfoo.bar\ninvalid/label\n*.bad',false),['api','www','foo.bar']);
+ assert(subdomains.parseWords('',true).length>=60,'common built-in subdomain list missing');
+ assert.deepEqual(subdomains.parseCT('[{"name_value":"*.API.github.io\\nwww.github.io\\nevilgithub.io"}]','github.io',20),['api.github.io','www.github.io']);
+ const dnsSeen=[];
+ async function subdomainTransport(url,opt={}){
+   const u=new URL(url);
+   if(u.hostname==='dns.google'){
+     const name=u.searchParams.get('name'),type=u.searchParams.get('type');
+     dnsSeen.push(name);
+     const address=name==='api.github.io'?'203.0.113.41':name==='www.github.io'?'192.0.2.9':name.startsWith('freshsift-')?'192.0.2.9':null;
+     return {url,status:200,type:'application/json',body:JSON.stringify({Status:address?0:3,Answer:address&&type==='A'?[{type:1,data:address}]:[]})};
+   }
+   if(u.hostname==='github.io'||u.hostname==='api.github.io')
+     return {url,status:200,type:'text/html',body:'KEYWORD found'};
+   throw Error('Unmocked resource: '+url);
+ }
+ const domainResult=await scan(cfg({seeds:'https://github.io',patterns:'KEYWORD',allowedTLDs:'.io',providers:[],
+   enumerateSubdomains:true,subdomainUseBuiltIn:false,subdomainUseCT:false,subdomainWords:'api, www, missing',subdomainLimit:10,
+   respectRobots:false}),subdomainTransport);
+ assert(domainResult.state.subdomains.some(x=>x.hostname==='api.github.io'&&x.verified),'DNS-confirmed subdomain not shown');
+ assert(!domainResult.state.subdomains.some(x=>x.hostname==='www.github.io'),'wildcard DNS answer must not count as a discovered host');
+ assert(domainResult.matches.some(x=>x.url.includes('api.github.io')),'discovered subdomain not added to crawler');
+ assert(dnsSeen.includes('api.github.io'),'custom wordlist not queried via DoH');
  const cancelEngine=new BrowserEngine({fetchResource:mockTransport});cancelEngine.stop();assert.equal(cancelEngine.snapshot().stats.status,'idle');
  console.log('PASS: browser source assets, visible, filetypes, exclusions, robots, CORS reporting');
 })().catch(e=>{console.error(e);process.exitCode=1});
