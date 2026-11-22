@@ -17,7 +17,8 @@ func TestDNSIntelConfigOptionsAndStandalone(t *testing.T) {
  if err:=c.Normalize();err!=nil {t.Fatal(err)}
  c.DiscoverDNSRecords=false
  c.EnumerateSubdomains=true
- c.SubdomainGuess=false
+ guess:=false
+ c.SubdomainGuess=&guess
  c.SubdomainUseCT=true
  if err:=c.Normalize();err!=nil {t.Fatal(err)}
  c.SubdomainUseCT=false
