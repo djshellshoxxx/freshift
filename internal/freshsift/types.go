@@ -171,7 +171,7 @@ func (c *Config) Normalize() error {
 	if c.ReverseDNSPageDepth < 0 || c.ReverseDNSPageDepth > 8 || c.ReverseDNSSubdomainDepth < 0 || c.ReverseDNSSubdomainDepth > 8 {
 		return errors.New("reverse DNS crawl depths must be between 0 and 8")
 	}
-	if c.ReverseDNSSubdomains && !c.EnumerateSubdomains {
+	if c.ReverseDNSSubdomains && !c.EnumerateSubdomains && !c.DNSOnly {
 		return errors.New("reverse DNS of subdomains requires subdomain enumeration")
 	}
 	if c.DNSOnly && !c.DiscoverDNSRecords {
@@ -184,7 +184,7 @@ func (c *Config) Normalize() error {
 		enabled := true // Older API clients without this new setting keep wordlist discovery.
 		c.SubdomainGuess = &enabled
 	}
-	if c.EnumerateSubdomains {
+	if c.EnumerateSubdomains && !c.DNSOnly {
 		if strings.TrimSpace(c.Seeds) == "" {
 			return errors.New("subdomain discovery requires at least one seed domain")
 		}
