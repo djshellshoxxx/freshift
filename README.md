@@ -13,13 +13,31 @@ FreshSift supports exact strings, RE2 regex, binary/source-byte searching, and *
 *Illustrative filetype-search preview. The actual application uses `web/index.html`, `web/style.css` and `web/app.js`; test your screen size in the local browser.*
 
 
+## GitHub Pages client-side execution (experimental)
+
+The Pages dashboard now runs a JavaScript crawler **in the browser** when no Go engine is connected. No Go binary or external backend is needed for:
+
+- Local file source/visible-style searches and file-extension detection (up to 8 MiB per file).
+- Crawling CORS-accessible HTTP(S) pages, static linked HTML/CSS/JS assets and file URLs.
+- Source / visible-style / file-extension modes; exact matches and a restricted JavaScript-regex implementation; exclusion, TLD, domain, URL and depth filters.
+- Browser-side pause/resume/stop, live results and CSV/JSON/JSONL exports, plus local presets and import/export of settings.
+- Best-effort public urlscan/HN/sitemap/RSS discovery if the remote API allows browser requests. Failed discovery is reported, not silently ignored.
+
+**Optional extension:** Install the [Chromium/Edge fetch bridge](extension/README.md) locally to make HTTP(S) requests through an explicitly permissioned Manifest V3 extension service worker, avoiding ordinary page CORS restrictions. This uses **no central crawl proxy** and does not send stored site cookies or login credentials. The extension does not follow HTTP redirects; supply final URLs. It also cannot enable FTP or execute scanned webpages' JavaScript.
+
+**Limits:** Browser regex is not Go RE2; its patterns are restricted to reduce backtracking. HTML visible mode is an approximation and not JS-rendered DOM. Robots.txt failures skip sites when robots checking is enabled. Authentication-protected sites, request throttling, private DNS/rebinding, cross-origin network policies, external service rate limits and first-indexed timestamp verification are not solved. Static GitHub Pages alone still cannot make arbitrary cross-origin or FTP requests.
+
+To run a scan without Go, open Pages, paste target URLs or select local files, choose a mode and press GO. For sites that reject direct browser reads, use the extension. To use anonymous FTP or the full Go RE2/network engine instead, choose **Connect Go engine**.
+
+See [feature matrix](docs/FEATURE_MATRIX.md), [browser tests](qa/browser-engine.test.cjs), and [extension documentation](extension/README.md).
+
 ## GitHub Pages — feature-identical dashboard
 
 [Open the FreshSift Pages interface](https://djshellshoxxx.github.io/freshift/) · [Repository](https://github.com/djshellshoxxx/freshift)
 
 **GitHub Pages and the Go desktop app use the exact same HTML, CSS and JavaScript dashboard** (`web/` is mirrored into `docs/`). Both show the same live result panes and **every search option**: exact strings, Go RE2 regex, entire HTML/JS/CSS/source/binary searching, visible text, filetype-only discovery, .asx exclusion, FTP and IP addresses, robots.txt control, TLD/domain filters, concurrency, depth and time budgets, provider age windows, advanced search links, CSV/JSON/JSONL export, pause/resume/stop and IP enrichment. Both also expose new v0.3 tools for scope preview, settings import/export, local scan history, and filtered CSV containing the URL, matching text, source, surrounding context and timestamps.
 
-GitHub Pages **cannot run Go or bypass CORS**. The Pages UI is a **client for a separate Go engine**. It has all controls and capabilities **when connected to an online, token-protected Go engine**; before connection the site displays the configuration interface but cannot actually crawl the internet. This architecture does not create a public open proxy. The Windows desktop app launches a local Go engine automatically.
+GitHub Pages cannot host Go. Its JavaScript client can now scan local files and CORS-accessible HTTP(S) targets independently, and the optional local browser extension can fetch broader HTTP(S) destinations. Connect a token-protected Go engine only when its additional behavior (notably FTP and Go RE2) is needed. This architecture does not create a public open proxy. The Windows desktop app launches a local Go engine automatically.
 
 **Connecting Pages to your own Go backend (Unraid / Windows / Linux):**
 
