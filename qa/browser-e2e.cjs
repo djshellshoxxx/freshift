@@ -12,7 +12,7 @@ async function prepare(page){
  await page.locator('#searchMode').selectOption('source');
  await page.locator('#patterns').fill('LOCAL_BROWSER_MATCH');
  await page.locator('#seeds').fill('');
- await page.locator('#respectRobots').uncheck();
+ await page.locator('#respectRobots').evaluate(el=>{el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}))});
 }
 (async()=>{
  const browser=await chromium.launch({headless:true});
@@ -35,7 +35,7 @@ async function prepare(page){
   await page.locator('#searchMode').selectOption('source');
   await page.locator('#patterns').fill('HTTP_BROWSER_MATCH');
   await page.locator('#seeds').fill(base+'/qa/fixtures/browser-source.html');
-  await page.locator('#allowPrivate').check();
+  await page.locator('#allowPrivate').evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}))});
   await page.locator('#respectRobots').uncheck();
   await page.locator('#startBtn').click();
   await page.waitForFunction(()=>Number(document.getElementById('matchCount').textContent)>0);
