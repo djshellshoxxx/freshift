@@ -48,6 +48,14 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  ({state}=await scan(cfg({seeds:'https://unavailable.example.org',patterns:'WORD'}),async()=>{throw new TypeError('Failed to fetch (CORS)')}));
  assert(state.stats.errors>0,'CORS failures must surface rather than silently report success');
  assert(state.logs.some(x=>/CORS|Failed to fetch/i.test(x)),'CORS error must be logged');
+ const localEngine=new BrowserEngine({fetchResource:async()=>{throw Error('Local files must not use network')}});
+ const localBytes=new TextEncoder().encode('bytes KEYWORD_LOCAL more');
+ const localFile={name:'local.db',size:localBytes.byteLength,arrayBuffer:async()=>localBytes.buffer};
+ await localEngine.start(cfg({seeds:'',providers:[],searchMode:'source'}),[localFile]);
+ assert(localEngine.allResults().some(x=>x.context.includes('KEYWORD_LOCAL')),'local file source scan missing');
+ const localFilesMode=new BrowserEngine({fetchResource:async()=>{throw Error('Local file verification must not fetch')}});
+ await localFilesMode.start(cfg({seeds:'',providers:[],searchMode:'files',patterns:'',fileTypes:'.db'}),[localFile]);
+ assert(localFilesMode.allResults().some(x=>x.kind==='file'),'local file type detection missing');
  const cancelEngine=new BrowserEngine({fetchResource:mockTransport});cancelEngine.stop();assert.equal(cancelEngine.snapshot().stats.status,'idle');
  console.log('PASS: browser source assets, visible, filetypes, exclusions, robots, CORS reporting');
 })().catch(e=>{console.error(e);process.exitCode=1});
