@@ -5,6 +5,7 @@ import (
     "errors"
     "reflect"
     "strings"
+    "sync/atomic"
     "testing"
 )
 
@@ -30,9 +31,9 @@ func TestCTSubdomainsScopeAndWildcard(t *testing.T) {
 }
 
 func TestDNSSubdomainResolutionSuppressedForWildcardAndRetainsValid(t *testing.T) {
-    lookups := 0
+    var lookups atomic.Int32
     lookup := func(_ context.Context, name string) ([]string, error) {
-        lookups++
+        lookups.Add(1)
         if name == "api.github.io" { return []string{"203.0.113.42"}, nil }
         if name == "mail.github.io" { return nil, errors.New("no DNS record") }
         return []string{"192.0.2.9"}, nil // wildcard
@@ -41,7 +42,7 @@ func TestDNSSubdomainResolutionSuppressedForWildcardAndRetainsValid(t *testing.T
     if len(found) != 1 || found[0].Hostname != "api.github.io" || !found[0].Verified || found[0].Source != "dns" {
         t.Fatalf("unexpected subdomains %+v", found)
     }
-    if lookups < 4 { t.Fatal("wildcard detection did not query control labels") }
+    if lookups.Load() < 4 { t.Fatal("wildcard detection did not query control labels") }
 }
 
 func TestSubdomainConfigValidation(t *testing.T) {
