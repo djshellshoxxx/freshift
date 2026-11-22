@@ -275,6 +275,29 @@ class BrowserEngine {
      for(const item of (p==='hn'?json.hits:json.results)||[]){
       const url=p==='hn'?item.url:item.page?.url;if(url&&n++<(this.cfg.discoveryLimit||100))this.enqueue(url,p,0,false,p==='hn'?item.created_at:item.task?.time);
      }
+    }else if(p==='searxng'){
+     const raw=String(this.cfg.searxngURL||''),query=String(this.cfg.sourceQuery||'').trim()||(!this.cfg.regex?lines(this.cfg.patterns)[0]||'':'');
+     let base;try{base=new URL(raw)}catch{throw Error('SearXNG needs a valid HTTPS URL')}
+     if(base.protocol!=='https:'||base.username||base.password||base.search||base.hash||local(base.hostname))throw Error('SearXNG needs a public HTTPS base URL');
+     const engines=(this.cfg.searchEngines||[]).filter(x=>['google','bing','duckduckgo','brave','mojeek','startpage','yandex'].includes(x));
+     if(!query||!engines.length)throw Error('SearXNG needs a discovery keyword and selected search engines');
+     const seen=new Set(),limit=Number(this.cfg.discoveryLimit)||100,age=Number(this.cfg.recentHours)||24;
+     for(let page=1;page<=5&&seen.size<limit;page++){
+      const endpoint=new URL(base.href.replace(/\/$/,'')+'/search');
+      endpoint.searchParams.set('q',query);endpoint.searchParams.set('format','json');endpoint.searchParams.set('pageno',String(page));
+      endpoint.searchParams.set('engines',engines.join(','));endpoint.searchParams.set('time_range',age<=24?'day':age<=720?'month':'year');
+      const r=await this.fetch(endpoint.href);if(r.status!==200)throw Error('SearXNG HTTP '+r.status);
+      const data=JSON.parse(r.body),results=Array.isArray(data.results)?data.results:[];let added=0;
+      for(const row of results){
+       let url;try{url=urlOf(row.url)}catch{continue}
+       if(seen.has(url))continue;seen.add(url);added++;
+       const engine=Array.isArray(row.engines)?row.engines.find(x=>engines.includes(x)):undefined;
+       this.enqueue(url,engine?'searxng/'+engine:'searxng');
+       if(seen.size>=limit)break;
+      }
+      if(!results.length||!added)break;
+     }
+     this.log('SearXNG: '+seen.size+' result URLs from selected engines (freshness best-effort)');
     }else if(p==='ct'){
      // crt.sh observations are about certificate logs, not first web indexing.
      for(const raw of lines(this.cfg.seeds).slice(0,12)){
