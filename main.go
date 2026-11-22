@@ -147,8 +147,8 @@ func newMuxWithSettings(engine *freshsift.Engine, settings remoteSettings) http.
 	})
 	mux.HandleFunc("GET /api/export", func(w http.ResponseWriter, r *http.Request) { exportResults(w, r, engine.AllResults()) })
 	mux.HandleFunc("GET /api/subdomains", func(w http.ResponseWriter, r *http.Request) { exportSubdomains(w, r, engine.AllSubdomains()) })
-	mux.HandleFunc("GET /api/dns-records",func(w http.ResponseWriter,r *http.Request){exportDNSRecords(w,r,engine.AllDNSRecords())})
-	mux.HandleFunc("GET /api/reverse-dns",func(w http.ResponseWriter,r *http.Request){exportReverseHosts(w,r,engine.AllReverseDNS())})
+	mux.HandleFunc("GET /api/dns-records", func(w http.ResponseWriter, r *http.Request) { exportDNSRecords(w, r, engine.AllDNSRecords()) })
+	mux.HandleFunc("GET /api/reverse-dns", func(w http.ResponseWriter, r *http.Request) { exportReverseHosts(w, r, engine.AllReverseDNS()) })
 	mux.HandleFunc("GET /api/ip", ipLookup)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -283,35 +283,56 @@ func exportSubdomains(w http.ResponseWriter, r *http.Request, rows []freshsift.S
 	}
 }
 
-
-func exportDNSRecords(w http.ResponseWriter,r *http.Request,rows []freshsift.DNSRecord){
-	format:=r.URL.Query().Get("format")
-	if format==""||format=="json"{jsonResponse(w,200,rows);return}
-	if format!="csv"{jsonError(w,400,"INVALID_FORMAT","supported formats: json, csv");return}
+func exportDNSRecords(w http.ResponseWriter, r *http.Request, rows []freshsift.DNSRecord) {
+	format := r.URL.Query().Get("format")
+	if format == "" || format == "json" {
+		jsonResponse(w, 200, rows)
+		return
+	}
+	if format != "csv" {
+		jsonError(w, 400, "INVALID_FORMAT", "supported formats: json, csv")
+		return
+	}
 	var buf bytes.Buffer
-	cw:=csv.NewWriter(&buf)
-	_ = cw.Write([]string{"Domain","Type","Value"})
-	for _,row:=range rows{_ = cw.Write([]string{csvSafe(row.Domain),csvSafe(row.Type),csvSafe(row.Value)})}
+	cw := csv.NewWriter(&buf)
+	_ = cw.Write([]string{"Domain", "Type", "Value"})
+	for _, row := range rows {
+		_ = cw.Write([]string{csvSafe(row.Domain), csvSafe(row.Type), csvSafe(row.Value)})
+	}
 	cw.Flush()
-	if err:=cw.Error();err!=nil{jsonError(w,500,"EXPORT_FAILED",err.Error());return}
-	w.Header().Set("Content-Type","text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition",`attachment; filename="freshsift-dns-records.csv"`)
-	_,_=w.Write(buf.Bytes())
+	if err := cw.Error(); err != nil {
+		jsonError(w, 500, "EXPORT_FAILED", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="freshsift-dns-records.csv"`)
+	_, _ = w.Write(buf.Bytes())
 }
 
-func exportReverseHosts(w http.ResponseWriter,r *http.Request,rows []freshsift.ReverseHost){
-	format:=r.URL.Query().Get("format")
-	if format==""||format=="json"{jsonResponse(w,200,rows);return}
-	if format!="csv"{jsonError(w,400,"INVALID_FORMAT","supported formats: json, csv");return}
+func exportReverseHosts(w http.ResponseWriter, r *http.Request, rows []freshsift.ReverseHost) {
+	format := r.URL.Query().Get("format")
+	if format == "" || format == "json" {
+		jsonResponse(w, 200, rows)
+		return
+	}
+	if format != "csv" {
+		jsonError(w, 400, "INVALID_FORMAT", "supported formats: json, csv")
+		return
+	}
 	var buf bytes.Buffer
-	cw:=csv.NewWriter(&buf)
-	_ = cw.Write([]string{"IP","PTR Hostname","Origin","Forward Verified"})
-	for _,row:=range rows{_ = cw.Write([]string{csvSafe(row.IP),csvSafe(row.Hostname),csvSafe(row.Origin),strconv.FormatBool(row.Verified)})}
+	cw := csv.NewWriter(&buf)
+	_ = cw.Write([]string{"IP", "PTR Hostname", "Origin", "Forward Verified"})
+	for _, row := range rows {
+		_ = cw.Write([]string{csvSafe(row.IP), csvSafe(row.Hostname), csvSafe(row.Origin), strconv.FormatBool(row.Verified)})
+	}
 	cw.Flush()
-	if err:=cw.Error();err!=nil{jsonError(w,500,"EXPORT_FAILED",err.Error());return}
-	w.Header().Set("Content-Type","text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition",`attachment; filename="freshsift-reverse-dns.csv"`)
-	_,_=w.Write(buf.Bytes())
+	if err := cw.Error(); err != nil {
+		jsonError(w, 500, "EXPORT_FAILED", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="freshsift-reverse-dns.csv"`)
+	_, _ = w.Write(buf.Bytes())
 }
 
 func ipLookup(w http.ResponseWriter, r *http.Request) {

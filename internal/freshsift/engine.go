@@ -15,20 +15,20 @@ import (
 const MaxStoredMatches = 50000
 
 type Engine struct {
-	mu         sync.RWMutex
-	stats      Stats
-	matches    []Match
-	urls       map[string]FoundURL
-	subdomains map[string]Subdomain
-	dnsRecords map[string]DNSRecord
-	reverseHosts map[string]ReverseHost
-	reverseSeen map[string]bool
+	mu             sync.RWMutex
+	stats          Stats
+	matches        []Match
+	urls           map[string]FoundURL
+	subdomains     map[string]Subdomain
+	dnsRecords     map[string]DNSRecord
+	reverseHosts   map[string]ReverseHost
+	reverseSeen    map[string]bool
 	reverseQueries int
-	logs       []string
-	cfg        Config
-	cancel     context.CancelFunc
-	paused     bool
-	seq        int64
+	logs           []string
+	cfg            Config
+	cancel         context.CancelFunc
+	paused         bool
+	seq            int64
 }
 
 func NewEngine() *Engine {
@@ -146,8 +146,12 @@ func (e *Engine) Snapshot() Snapshot {
 	for _, item := range e.subdomains {
 		s.Subdomains = append(s.Subdomains, item)
 	}
-	for _, item := range e.dnsRecords {s.DNSRecords=append(s.DNSRecords,item)}
-	for _, item := range e.reverseHosts {s.ReverseDNS=append(s.ReverseDNS,item)}
+	for _, item := range e.dnsRecords {
+		s.DNSRecords = append(s.DNSRecords, item)
+	}
+	for _, item := range e.reverseHosts {
+		s.ReverseDNS = append(s.ReverseDNS, item)
+	}
 	e.mu.RUnlock()
 	if !s.Stats.StartedAt.IsZero() {
 		end := time.Now()
@@ -163,8 +167,14 @@ func (e *Engine) Snapshot() Snapshot {
 	s.Stats.TextMB = float64(s.Stats.TextBytes) / 1000000
 	sort.Slice(s.URLs, func(i, j int) bool { return s.URLs[i].LastMatch.After(s.URLs[j].LastMatch) })
 	sort.Slice(s.Subdomains, func(i, j int) bool { return s.Subdomains[i].Hostname < s.Subdomains[j].Hostname })
-	sort.Slice(s.DNSRecords,func(i,j int)bool{a,b:=s.DNSRecords[i],s.DNSRecords[j];return a.Domain+a.Type+a.Value<b.Domain+b.Type+b.Value})
-	sort.Slice(s.ReverseDNS,func(i,j int)bool{a,b:=s.ReverseDNS[i],s.ReverseDNS[j];return a.IP+a.Origin+a.Hostname<b.IP+b.Origin+b.Hostname})
+	sort.Slice(s.DNSRecords, func(i, j int) bool {
+		a, b := s.DNSRecords[i], s.DNSRecords[j]
+		return a.Domain+a.Type+a.Value < b.Domain+b.Type+b.Value
+	})
+	sort.Slice(s.ReverseDNS, func(i, j int) bool {
+		a, b := s.ReverseDNS[i], s.ReverseDNS[j]
+		return a.IP+a.Origin+a.Hostname < b.IP+b.Origin+b.Hostname
+	})
 	// Live updates stay bounded. Full results remain available via /api/export.
 	if len(s.Matches) > 500 {
 		s.Matches = s.Matches[len(s.Matches)-500:]
@@ -172,9 +182,15 @@ func (e *Engine) Snapshot() Snapshot {
 	if len(s.URLs) > 500 {
 		s.URLs = s.URLs[:500]
 	}
-	if len(s.Subdomains) > 2000 {s.Subdomains = s.Subdomains[:2000]}
-	if len(s.DNSRecords)>1250{s.DNSRecords=s.DNSRecords[:1250]}
-	if len(s.ReverseDNS)>500{s.ReverseDNS=s.ReverseDNS[:500]}
+	if len(s.Subdomains) > 2000 {
+		s.Subdomains = s.Subdomains[:2000]
+	}
+	if len(s.DNSRecords) > 1250 {
+		s.DNSRecords = s.DNSRecords[:1250]
+	}
+	if len(s.ReverseDNS) > 500 {
+		s.ReverseDNS = s.ReverseDNS[:500]
+	}
 	return s
 }
 func (e *Engine) AllResults() []Match {
@@ -204,27 +220,33 @@ func (e *Engine) AllSubdomains() []Subdomain {
 	return out
 }
 
-func(e *Engine) recordDNS(row DNSRecord) {
+func (e *Engine) recordDNS(row DNSRecord) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	k:=row.Domain+"|"+row.Type+"|"+row.Value
-	if _,exists:=e.dnsRecords[k];!exists {
-		e.dnsRecords[k]=row
-		e.stats.DNSRecords=len(e.dnsRecords)
+	k := row.Domain + "|" + row.Type + "|" + row.Value
+	if _, exists := e.dnsRecords[k]; !exists {
+		e.dnsRecords[k] = row
+		e.stats.DNSRecords = len(e.dnsRecords)
 	}
 }
-func(e *Engine) AllDNSRecords() []DNSRecord {
-	e.mu.RLock();defer e.mu.RUnlock()
-	out:=make([]DNSRecord,0,len(e.dnsRecords))
-	for _,r:=range e.dnsRecords{out=append(out,r)}
-	sort.Slice(out,func(i,j int)bool{a,b:=out[i],out[j];return a.Domain+a.Type+a.Value<b.Domain+b.Type+b.Value})
+func (e *Engine) AllDNSRecords() []DNSRecord {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([]DNSRecord, 0, len(e.dnsRecords))
+	for _, r := range e.dnsRecords {
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { a, b := out[i], out[j]; return a.Domain+a.Type+a.Value < b.Domain+b.Type+b.Value })
 	return out
 }
-func(e *Engine) AllReverseDNS() []ReverseHost {
-	e.mu.RLock();defer e.mu.RUnlock()
-	out:=make([]ReverseHost,0,len(e.reverseHosts))
-	for _,r:=range e.reverseHosts{out=append(out,r)}
-	sort.Slice(out,func(i,j int)bool{return out[i].IP+out[i].Hostname<out[j].IP+out[j].Hostname})
+func (e *Engine) AllReverseDNS() []ReverseHost {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([]ReverseHost, 0, len(e.reverseHosts))
+	for _, r := range e.reverseHosts {
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].IP+out[i].Hostname < out[j].IP+out[j].Hostname })
 	return out
 }
 
@@ -363,55 +385,68 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 	discoveryClient := newHTTPClient(15*time.Second, false)
 	sources := append([]Candidate{}, seeds...)
 	log := func(line string) { e.log(line) }
-	if !c.DNSOnly {for _, provider := range c.Providers {
-		if ctx.Err() != nil {
-			return
-		}
-		var found []Candidate
-		var err error
-		e.log("Discovery source: " + provider)
-		switch provider {
-		case "urlscan":
-			found, err = discoverURLScan(ctx, discoveryClient, c, log)
-		case "hn":
-			found, err = discoverHN(ctx, discoveryClient, c, log)
-		case "brave":
-			found, err = discoverBrave(ctx, discoveryClient, c, log)
-		case "sitemap":
-			found, err = discoverSitemaps(ctx, client, c, seeds, log)
-		case "ct":
-			found, err = discoverCT(ctx, discoveryClient, c, seeds, log)
-		case "rss":
-			found, err = discoverRSS(ctx, client, c, seeds, log)
-		}
-		if err != nil {
-			e.err(err)
-		}
-		sources = append(sources, found...)
-	}}
-	if ctx.Err() != nil {return}
-	if c.DiscoverDNSRecords {
-		seenDNS:=map[string]bool{}
-		for _,seed:=range seeds {
-			u,err:=url.Parse(seed.URL)
-			if err!=nil {continue}
-			host:=strings.ToLower(u.Hostname())
-			if !validSubdomainRoot(host)||seenDNS[host]||len(seenDNS)>=5{continue}
-			seenDNS[host]=true
-			rows:=queryDNSRecordsNative(ctx,host)
-			for _,row:=range rows {
-				e.recordDNS(row)
-				if len(ms)>0 {
-					hits:=dnsMatches([]DNSRecord{row},ms)
-					e.appendMatches(Candidate{URL:"https://"+host+"/",Source:"dns-record"},
-						fetchResult{URL:"https://"+host+"/",Status:200},host,hits,"DNS "+row.Type,"dns")
-				}
+	if !c.DNSOnly {
+		for _, provider := range c.Providers {
+			if ctx.Err() != nil {
+				return
 			}
-			e.log(fmt.Sprintf("DNS %s: %d records collected",host,len(rows)))
+			var found []Candidate
+			var err error
+			e.log("Discovery source: " + provider)
+			switch provider {
+			case "urlscan":
+				found, err = discoverURLScan(ctx, discoveryClient, c, log)
+			case "hn":
+				found, err = discoverHN(ctx, discoveryClient, c, log)
+			case "brave":
+				found, err = discoverBrave(ctx, discoveryClient, c, log)
+			case "sitemap":
+				found, err = discoverSitemaps(ctx, client, c, seeds, log)
+			case "ct":
+				found, err = discoverCT(ctx, discoveryClient, c, seeds, log)
+			case "rss":
+				found, err = discoverRSS(ctx, client, c, seeds, log)
+			}
+			if err != nil {
+				e.err(err)
+			}
+			sources = append(sources, found...)
 		}
 	}
-	if ctx.Err()!=nil{return}
-	if c.DNSOnly {e.log("DNS-only scan complete; HTTP crawling skipped");return}
+	if ctx.Err() != nil {
+		return
+	}
+	if c.DiscoverDNSRecords {
+		seenDNS := map[string]bool{}
+		for _, seed := range seeds {
+			u, err := url.Parse(seed.URL)
+			if err != nil {
+				continue
+			}
+			host := strings.ToLower(u.Hostname())
+			if !validSubdomainRoot(host) || seenDNS[host] || len(seenDNS) >= 5 {
+				continue
+			}
+			seenDNS[host] = true
+			rows := queryDNSRecordsNative(ctx, host)
+			for _, row := range rows {
+				e.recordDNS(row)
+				if len(ms) > 0 {
+					hits := dnsMatches([]DNSRecord{row}, ms)
+					e.appendMatches(Candidate{URL: "https://" + host + "/", Source: "dns-record"},
+						fetchResult{URL: "https://" + host + "/", Status: 200}, host, hits, "DNS "+row.Type, "dns")
+				}
+			}
+			e.log(fmt.Sprintf("DNS %s: %d records collected", host, len(rows)))
+		}
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	if c.DNSOnly {
+		e.log("DNS-only scan complete; HTTP crawling skipped")
+		return
+	}
 	if c.EnumerateSubdomains {
 		e.log("Subdomain discovery: DNS wordlist and historical CT names for seed domains")
 		found, err := discoverSubdomains(ctx, c, seeds, discoveryClient, e.recordSubdomain, log)
@@ -420,11 +455,15 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 		}
 		sources = append(sources, found...)
 	}
-	if ctx.Err()!=nil{return}
-	if c.ReverseDNSSubdomains {
-		sources=append(sources,e.reverseSubdomainHosts(ctx,c,seeds)...)
+	if ctx.Err() != nil {
+		return
 	}
-	if ctx.Err()!=nil{return}
+	if c.ReverseDNSSubdomains {
+		sources = append(sources, e.reverseSubdomainHosts(ctx, c, seeds)...)
+	}
+	if ctx.Err() != nil {
+		return
+	}
 	q := newQueue(c.MaxPages, c.MaxPagesPerHost)
 	for _, candidate := range sources {
 		candidate.BasePathSegments = pathSegments(candidate.URL)
@@ -629,11 +668,15 @@ func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *ht
 	if c.Status2xxOnly && (res.Status < 200 || res.Status >= 300) {
 		return
 	}
-	if c.ReverseDNSPages && item.ReverseOrigin=="" && !item.Resource && !matchingFile && u.Scheme!="ftp" && ctx.Err()==nil {
-		if finalURL,parseErr:=url.Parse(res.URL);parseErr==nil {
-			if ip,resolveErr:=validatedTarget(ctx,finalURL.Hostname(),c.AllowPrivate);resolveErr==nil {
-				for _,reverse:=range e.reverseIP(ctx,c,ip,"page",c.ReverseDNSPageDepth) {
-					if q.add(reverse){e.mu.Lock();e.stats.Discovered++;e.mu.Unlock()}
+	if c.ReverseDNSPages && item.ReverseOrigin == "" && !item.Resource && !matchingFile && u.Scheme != "ftp" && ctx.Err() == nil {
+		if finalURL, parseErr := url.Parse(res.URL); parseErr == nil {
+			if ip, resolveErr := validatedTarget(ctx, finalURL.Hostname(), c.AllowPrivate); resolveErr == nil {
+				for _, reverse := range e.reverseIP(ctx, c, ip, "page", c.ReverseDNSPageDepth) {
+					if q.add(reverse) {
+						e.mu.Lock()
+						e.stats.Discovered++
+						e.mu.Unlock()
+					}
 				}
 			}
 		}
@@ -709,7 +752,9 @@ func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *ht
 		if parseErr != nil {
 			return
 		}
-		if !reverseChildAllowed(c,item,child,resource) {return}
+		if !reverseChildAllowed(c, item, child, resource) {
+			return
+		}
 		if !resource && !c.FollowExternal && !strings.EqualFold(target.Host, u.Host) {
 			return
 		}
@@ -728,7 +773,7 @@ func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *ht
 			depth++
 		}
 		if q.add(Candidate{URL: child, Source: "linked", Depth: depth, Resource: resource, BasePathSegments: baseSegments,
-			ReverseOrigin:item.ReverseOrigin, ReverseHost:item.ReverseHost, ReverseDepth:item.ReverseDepth}) {
+			ReverseOrigin: item.ReverseOrigin, ReverseHost: item.ReverseHost, ReverseDepth: item.ReverseDepth}) {
 			e.mu.Lock()
 			e.stats.Discovered++
 			e.mu.Unlock()
@@ -737,7 +782,7 @@ func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *ht
 	for _, asset := range assets {
 		add(asset, true)
 	}
-	if item.ReverseOrigin!="" || item.Depth < c.Depth {
+	if item.ReverseOrigin != "" || item.Depth < c.Depth {
 		for _, page := range pages {
 			add(page, false)
 		}
