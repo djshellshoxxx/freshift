@@ -21,6 +21,7 @@ async function call(request,from=origin){
  const ok=await call({url:'https://example.org/file.db'});
  assert.equal(ok.body,'test content');assert.equal(ok.status,200);
  const denied=await call({url:'http://127.0.0.1/private'});assert(/Private\/localhost/.test(denied.error));
+ const ipv6=await call({url:'https://[::1]/admin'});assert(/Private\/localhost/.test(ipv6.error));
  const ftp=await call({url:'ftp://example.org/pub'});assert(/Only public HTTP/.test(ftp.error));
  const hidden=await call({url:'https://example.org' },'https://other.github.io/freshift/');
  assert.equal(hidden.error,'REJECTED');
