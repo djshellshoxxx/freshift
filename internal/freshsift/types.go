@@ -37,6 +37,12 @@ type Config struct {
 	EnumerateSubdomains bool     `json:"enumerateSubdomains"`
 	SubdomainUseBuiltIn bool     `json:"subdomainUseBuiltIn"`
 	SubdomainUseCT      bool     `json:"subdomainUseCT"`
+	SubdomainGuess      bool     `json:"subdomainGuess"`
+	DiscoverDNSRecords  bool     `json:"discoverDNSRecords"`
+	ReverseDNSPages     bool     `json:"reverseDNSPages"`
+	ReverseDNSPageDepth int      `json:"reverseDNSPageDepth"`
+	ReverseDNSSubdomains bool    `json:"reverseDNSSubdomains"`
+	ReverseDNSSubdomainDepth int `json:"reverseDNSSubdomainDepth"`
 	SubdomainWords      string   `json:"subdomainWords"`
 	SubdomainLimit      int      `json:"subdomainLimit"`
 	SourceQuery         string   `json:"sourceQuery"`
@@ -56,7 +62,7 @@ func DefaultConfig() Config {
 	return Config{
 		RecentHours: 24, Depth: 1, MaxPathSegments: 5, SiteMinutes: 0,
 		MaxPages: 1000, MaxPagesPerHost: 80, Concurrency: 24,
-		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250,
+		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250, ReverseDNSPageDepth: 1, ReverseDNSSubdomainDepth: 1,
 		RespectRobots: true, OnlyHTML: false, Status2xxOnly: true,
 		SearchMode: "source", EnableFTP: true,
 		Providers: []string{"urlscan", "hn"},
@@ -70,7 +76,7 @@ func (c *Config) Normalize() error {
 	if c.SearchMode != "source" && c.SearchMode != "visible" && c.SearchMode != "files" {
 		return errors.New("search mode must be source, visible or files")
 	}
-	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains {
+	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains && !c.DiscoverDNSRecords && !c.ReverseDNSPages {
 		return errors.New("enter at least one search phrase")
 	}
 	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" {
@@ -161,13 +167,24 @@ func (c *Config) Normalize() error {
 	if c.SubdomainLimit < 1 || c.SubdomainLimit > 2000 {
 		return errors.New("subdomain discovery limit must be between 1 and 2000")
 	}
+	if c.ReverseDNSPageDepth < 0 || c.ReverseDNSPageDepth > 8 || c.ReverseDNSSubdomainDepth < 0 || c.ReverseDNSSubdomainDepth > 8 {
+		return errors.New("reverse DNS crawl depths must be between 0 and 8")
+	}
+	if c.ReverseDNSSubdomains && !c.EnumerateSubdomains {
+		return errors.New("reverse DNS of subdomains requires subdomain enumeration")
+	}
+	if c.DiscoverDNSRecords && strings.TrimSpace(c.Seeds) == "" {
+		return errors.New("DNS record search requires at least one seed domain")
+	}
 	if c.EnumerateSubdomains {
 		if strings.TrimSpace(c.Seeds) == "" {
 			return errors.New("subdomain discovery requires at least one seed domain")
 		}
-		words, err := parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
-		if err != nil {
-			return err
+		words := []string{}
+		if c.SubdomainGuess {
+			var err error
+			words, err = parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
+			if err != nil {return err}
 		}
 		if len(words) == 0 && !c.SubdomainUseCT {
 			return errors.New("enable the built-in subdomain list, enter words, or enable CT lookup")
@@ -230,6 +247,9 @@ type Candidate struct {
 	IP               string    `json:"ip,omitempty"`
 	BasePathSegments int       `json:"-"`
 	Resource         bool      `json:"-"` // Embedded asset; does not use page-recursion depth.
+	ReverseOrigin    string    `json:"-"`
+	ReverseHost      string    `json:"-"`
+	ReverseDepth     int       `json:"-"`
 	Depth            int       `json:"depth"`
 }
 
@@ -275,6 +295,8 @@ type Stats struct {
 	FilesFound     int       `json:"filesFound"`
 	Discovered     int       `json:"discovered"`
 	Subdomains     int       `json:"subdomains"`
+	DNSRecords     int       `json:"dnsRecords"`
+	ReverseHosts   int       `json:"reverseHosts"`
 	Queued         int       `json:"queued"`
 	Skipped        int       `json:"skipped"`
 	TruncatedPages int       `json:"truncatedPages"`
@@ -289,6 +311,8 @@ type Snapshot struct {
 	Matches    []Match     `json:"matches"`
 	URLs       []FoundURL  `json:"urls"`
 	Subdomains []Subdomain `json:"subdomains"`
+	DNSRecords []DNSRecord `json:"dnsRecords"`
+	ReverseDNS []ReverseHost `json:"reverseDNS"`
 	Logs       []string    `json:"logs"`
 }
 
