@@ -283,7 +283,7 @@ class BrowserEngine {
   this.cfg.depth=Math.max(0,Math.min(8,Number(this.cfg.depth)||0));
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
   if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
-  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length)throw Error('Enter search phrase');
+  if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains)throw Error('Enter search phrase or enable subdomain enumeration');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
   if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
