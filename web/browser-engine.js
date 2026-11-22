@@ -97,7 +97,7 @@ class BrowserEngine {
   this.subdomains.set(row.hostname,row);
   this.stats.subdomains=this.subdomains.size;
   this.enqueue('https://'+row.hostname+'/','subdomain-'+row.source);
-  this.onUpdate(this.snapshot());
+  if(this.subdomains.size<=10||this.subdomains.size%10===0)this.onUpdate(this.snapshot());
  }
  log(msg){this.logs.push(new Date().toISOString().slice(11,19)+' '+msg);if(this.logs.length>200)this.logs.shift();this.onUpdate(this.snapshot())}
  error(label,e){this.stats.errors++;this.stats.lastError=String(e?.message||e);this.log(label+': '+this.stats.lastError)}
