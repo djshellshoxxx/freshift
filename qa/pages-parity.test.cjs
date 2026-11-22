@@ -7,7 +7,7 @@ assert.equal(pages.replace('\n<meta name="freshsift-frontend" content="pages">',
 for(const f of ['app.js','browser-engine.js','style.css','favicon.svg'])assert.equal(fs.readFileSync('docs/'+f,'utf8'),fs.readFileSync('web/'+f,'utf8'),`Pages asset ${f} diverges from desktop`);
 assert(pages.includes('<script src="./browser-engine.js" defer></script>'),'Pages browser engine is not loaded');
 const go=fs.readFileSync('internal/freshsift/types.go','utf8');
-const struct=go.match(/type Config struct \\{([\\s\\S]*?)\\n\\}/);
+const struct=go.match(/type Config struct \{([\s\S]*?)\n\}/);
 assert(struct,'Go config struct missing');
 // Legacy searchRawHTML is superseded by searchMode and not emitted by the dashboard.
 const keys=[...struct[1].matchAll(/`json:"([^"]+)"`/g)].map(m=>m[1]).filter(x=>x!=='searchRawHTML').sort();
