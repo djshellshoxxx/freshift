@@ -12,7 +12,7 @@ function parseWords(raw,builtin=true){
   for(const line of String(source||'').split(/\r?\n/)){
    if(!line.trim()||line.trim().startsWith('#'))continue;
    for(const part of line.split(/[,;\s]+/)){
-    const word=part.trim().toLowerCase().replace(/^\.+|\.+$/g,'');
+    const word=part.trim().toLowerCase().replace(/^[.\"']+|[.\"']+$/g,'');
     if(!word||seen.has(word)||!validName(word))continue;
     seen.add(word);out.push(word);
     if(out.length>5000)throw Error('Subdomain wordlist exceeds 5,000 distinct labels');
