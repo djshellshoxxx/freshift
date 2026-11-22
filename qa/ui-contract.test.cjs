@@ -9,9 +9,9 @@ const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
 assert.equal(new Set(ids).size,ids.length,'duplicate HTML IDs');
 const nodes={};
 for(const id of ids){nodes[id]={id,type:id.startsWith('src-')?'checkbox':'text',value:'',checked:false,hidden:false,textContent:'',disabled:false};}
-for(const id of ['regex','caseSensitive','respectRobots','enableFTP','allowPrivate','followExternal','status2xxOnly']){nodes[id].type='checkbox'}
+for(const id of ['regex','caseSensitive','respectRobots','enableFTP','allowPrivate','followExternal','status2xxOnly','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT']){nodes[id].type='checkbox'}
 for(const id of ['respectRobots','enableFTP','status2xxOnly'])nodes[id].checked=true;
-nodes.searchMode.value='source';nodes.recentHours.value='24';nodes.depth.value='0';nodes.maxPathSegments.value='5';nodes.maxPages.value='1000';nodes.concurrency.value='24';nodes.fileTypes.value='.jpg';nodes.seeds.value='http://127.0.0.1:9000/';
+nodes.subdomainUseBuiltIn.checked=true;nodes.subdomainUseCT.checked=true;nodes.subdomainLimit.value='250';nodes.searchMode.value='source';nodes.recentHours.value='24';nodes.depth.value='0';nodes.maxPathSegments.value='5';nodes.maxPages.value='1000';nodes.concurrency.value='24';nodes.fileTypes.value='.jpg';nodes.seeds.value='http://127.0.0.1:9000/';
 const ctx=vm.createContext({
  console,URL,URLSearchParams,Intl,Date,Number,String,Object,Array,Set,Map,Error,Promise,
  document:{getElementById:(id)=>{if(!nodes[id])throw new Error('Unknown DOM ID '+id);return nodes[id]},addEventListener(){}},
@@ -21,7 +21,7 @@ const ctx=vm.createContext({
 vm.runInContext(js,ctx,{filename:'web/app.js'});
 for(const id of vm.runInContext('configIDs',ctx))assert(ids.includes(id),'missing config element: '+id);
 let cfg=vm.runInContext('makeConfig()',ctx);
-assert.equal(cfg.searchMode,'source');assert.equal(cfg.onlyHTML,false);assert.equal(cfg.respectRobots,true);assert.equal(cfg.enableFTP,true);
+assert.equal(cfg.searchMode,'source');assert.equal(cfg.onlyHTML,false);assert.equal(cfg.subdomainUseBuiltIn,true);assert.equal(cfg.subdomainUseCT,true);assert.equal(cfg.subdomainLimit,250);assert.equal(cfg.respectRobots,true);assert.equal(cfg.enableFTP,true);
 vm.runInContext('syncSearchMode()',ctx);
 assert.equal(nodes.stringSettings.hidden,false);assert.equal(nodes.fileTypeSettings.hidden,true);
 nodes.searchMode.value='files';vm.runInContext('syncSearchMode()',ctx);
