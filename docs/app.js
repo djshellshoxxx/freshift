@@ -82,7 +82,28 @@ async function importFile(file){if(!file)return;if(file.size>2_000_000){message(
 function updatePresets(){const el=$('presetSelect'),stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');el.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Load preset';el.append(opt);for(const name of Object.keys(stored).sort()){const next=document.createElement('option');next.value=name;next.textContent=name;el.append(next)}}
 function savePreset(){const name=window.prompt('Name this configuration preset:');if(!name)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;const stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');stored[trimmed]=snapshotForm();localStorage.setItem('freshsift-presets-v1',JSON.stringify(stored));updatePresets();$('presetSelect').value=trimmed;toast('Preset saved locally in this browser')}
 function openSearchLinks(){const query=value('engineQuery').trim();if(!query){toast('Enter a search query first',true);return};const engines=[['Google','https://www.google.com/search?q='],['Bing','https://www.bing.com/search?q='],['Brave','https://search.brave.com/search?q='],['DuckDuckGo','https://duckduckgo.com/?q='],['Mojeek','https://www.mojeek.com/search?q='],['Yandex','https://yandex.com/search/?text=']];const box=$('engineLinks');box.replaceChildren();for(const [name,prefix] of engines){const link=document.createElement('a');link.className='engine-link';link.href=prefix+encodeURIComponent(query);link.target='_blank';link.rel='noopener noreferrer';link.textContent=name+' ↗';box.append(link)}}
-async function lookupIP(){const ip=value('ipInput').trim();if(!ip){toast('Enter a public IP address',true);return};const pre=$('ipOutput');pre.hidden=false;pre.textContent='Looking up public IP…';try{const res=await apiFetch('/api/ip?ip='+encodeURIComponent(ip));const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Lookup failed');pre.textContent=JSON.stringify(data,null,2)}catch(e){pre.textContent=e.message}}
+async function lookupIP(){const ip=value('ipInput').trim();if(!ip){toast('Enter a public IP address',true);return};const pre=$('ipOutput');pre.hidden=false;pre.textContent='Looking up public IP…';try{
+ if(!connected&&browserEngine){
+  const bits=ip.split('.').map(Number);
+  if(bits.length!==4||bits.some(n=>!Number.isInteger(n)||n<0||n>255))throw Error('Enter a valid public IPv4 address');
+  const privateIP=bits[0]===0||bits[0]===10||bits[0]===127||bits[0]>=224||
+   bits[0]===169&&bits[1]===254||bits[0]===172&&bits[1]>=16&&bits[1]<=31||
+   bits[0]===192&&bits[1]===168;
+  if(privateIP)throw Error('InternetDB requires a public IPv4 address');
+  const endpoint='https://internetdb.shodan.io/'+encodeURIComponent(ip);
+  let result;
+  if(window.FreshSiftExtension?.ready){
+   const remote=await window.FreshSiftExtension.fetch(endpoint,{method:'GET',timeoutSeconds:12});
+   if(remote.status!==200)throw Error('InternetDB HTTP '+remote.status);
+   result=JSON.parse(remote.body);
+  }else{
+   const remote=await fetch(endpoint,{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',redirect:'error'});
+   if(!remote.ok)throw Error('InternetDB HTTP '+remote.status);
+   result=await remote.json();
+  }
+  pre.textContent=JSON.stringify(result,null,2);return;
+ }
+ const res=await apiFetch('/api/ip?ip='+encodeURIComponent(ip));const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Lookup failed');pre.textContent=JSON.stringify(data,null,2)}catch(e){pre.textContent=e.message}}
 function downloadBlob(data,filename,mimetype){const blob=new Blob([data],{type:mimetype}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function downloadAll(){
  if(!connected&&browserEngine){
