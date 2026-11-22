@@ -15,19 +15,20 @@ import (
 const MaxStoredMatches = 50000
 
 type Engine struct {
-	mu      sync.RWMutex
-	stats   Stats
-	matches []Match
-	urls    map[string]FoundURL
-	logs    []string
-	cfg     Config
-	cancel  context.CancelFunc
-	paused  bool
-	seq     int64
+	mu         sync.RWMutex
+	stats      Stats
+	matches    []Match
+	urls       map[string]FoundURL
+	subdomains map[string]Subdomain
+	logs       []string
+	cfg        Config
+	cancel     context.CancelFunc
+	paused     bool
+	seq        int64
 }
 
 func NewEngine() *Engine {
-	return &Engine{stats: Stats{Status: "idle"}, matches: []Match{}, urls: map[string]FoundURL{}, logs: []string{}}
+	return &Engine{stats: Stats{Status: "idle"}, matches: []Match{}, urls: map[string]FoundURL{}, subdomains: map[string]Subdomain{}, logs: []string{}}
 }
 func (e *Engine) Start(c Config) error {
 	if err := c.Normalize(); err != nil {
@@ -50,6 +51,7 @@ func (e *Engine) Start(c Config) error {
 	e.stats = Stats{Status: "discovering", StartedAt: time.Now()}
 	e.matches = []Match{}
 	e.urls = map[string]FoundURL{}
+	e.subdomains = map[string]Subdomain{}
 	e.logs = []string{}
 	e.seq = 0
 	e.cfg = c
@@ -128,10 +130,13 @@ func (e *Engine) err(err error) {
 }
 func (e *Engine) Snapshot() Snapshot {
 	e.mu.RLock()
-	s := Snapshot{Stats: e.stats, Matches: append([]Match{}, e.matches...), Logs: append([]string{}, e.logs...)}
+	s := Snapshot{Stats: e.stats, Matches: append([]Match{}, e.matches...), Subdomains: []Subdomain{}, Logs: append([]string{}, e.logs...)}
 	s.URLs = make([]FoundURL, 0, len(e.urls))
 	for _, item := range e.urls {
 		s.URLs = append(s.URLs, item)
+	}
+	for _, item := range e.subdomains {
+		s.Subdomains = append(s.Subdomains, item)
 	}
 	e.mu.RUnlock()
 	if !s.Stats.StartedAt.IsZero() {
@@ -147,6 +152,7 @@ func (e *Engine) Snapshot() Snapshot {
 	s.Stats.MBScanned = float64(s.Stats.BytesScanned) / 1000000
 	s.Stats.TextMB = float64(s.Stats.TextBytes) / 1000000
 	sort.Slice(s.URLs, func(i, j int) bool { return s.URLs[i].LastMatch.After(s.URLs[j].LastMatch) })
+	sort.Slice(s.Subdomains, func(i, j int) bool { return s.Subdomains[i].Hostname < s.Subdomains[j].Hostname })
 	// Live updates stay bounded. Full results remain available via /api/export.
 	if len(s.Matches) > 500 {
 		s.Matches = s.Matches[len(s.Matches)-500:]
@@ -154,12 +160,36 @@ func (e *Engine) Snapshot() Snapshot {
 	if len(s.URLs) > 500 {
 		s.URLs = s.URLs[:500]
 	}
+	if len(s.Subdomains) > 2000 {
+		s.Subdomains = s.Subdomains[:2000]
+	}
 	return s
 }
 func (e *Engine) AllResults() []Match {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return append([]Match{}, e.matches...)
+}
+
+func (e *Engine) recordSubdomain(row Subdomain) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if old, ok := e.subdomains[row.Hostname]; ok && old.Verified && !row.Verified {
+		return // Never replace a DNS-confirmed hostname with a historical CT observation.
+	}
+	e.subdomains[row.Hostname] = row
+	e.stats.Subdomains = len(e.subdomains)
+}
+
+func (e *Engine) AllSubdomains() []Subdomain {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([]Subdomain, 0, len(e.subdomains))
+	for _, row := range e.subdomains {
+		out = append(out, row)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
+	return out
 }
 
 type taskQueue struct {
@@ -318,6 +348,17 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 		case "rss":
 			found, err = discoverRSS(ctx, client, c, seeds, log)
 		}
+		if err != nil {
+			e.err(err)
+		}
+		sources = append(sources, found...)
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	if c.EnumerateSubdomains {
+		e.log("Subdomain discovery: DNS wordlist and historical CT names for seed domains")
+		found, err := discoverSubdomains(ctx, c, seeds, discoveryClient, e.recordSubdomain, log)
 		if err != nil {
 			e.err(err)
 		}

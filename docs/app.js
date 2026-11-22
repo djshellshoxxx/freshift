@@ -1,7 +1,7 @@
 /* FreshSift unified CDL dashboard: GitHub Pages client or local Go engine. No trackers. */
 'use strict';
 const $ = id => document.getElementById(id);
-const configIDs=['seeds','patterns','regex','caseSensitive','searchMode','fileTypes','recentHours','depth','maxPathSegments','maxExtraDirs','siteMinutes','budgetMode','maxPages','maxPagesPerHost','concurrency','perHostConcurrency','timeoutSeconds','discoveryLimit','sourceQuery','followExternal','respectRobots','allowPrivate','allowDomains','excludeDomains','urlContains','urlExcludes','enableFTP','excludeFileTypes','allowedTLDs','status2xxOnly','src-urlscan','src-hn','src-brave','src-sitemap','src-rss','src-ct'];
+const configIDs=['seeds','patterns','regex','caseSensitive','searchMode','fileTypes','recentHours','depth','maxPathSegments','maxExtraDirs','siteMinutes','budgetMode','maxPages','maxPagesPerHost','concurrency','perHostConcurrency','timeoutSeconds','discoveryLimit','sourceQuery','followExternal','respectRobots','allowPrivate','allowDomains','excludeDomains','urlContains','urlExcludes','enableFTP','excludeFileTypes','allowedTLDs','status2xxOnly','src-urlscan','src-hn','src-brave','src-sitemap','src-rss','src-ct','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT','subdomainWords','subdomainLimit'];
 const sources=['urlscan','hn','brave','sitemap','rss','ct'];
 const sampleData={
  stats:{status:'completed',elapsedSeconds:77,pagesScanned:128,pagesPerMinute:99.7,bytesScanned:20753218,MBScanned:20.75,textMB:18.75,matches:42,matchedPages:18,discovered:192,queued:0,skipped:12,errors:2,activeWorkers:0,lastUrl:'https://example.org/blog/updates'},
@@ -24,7 +24,7 @@ const number=id=>Number(value(id));
 const fmt=n=>new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(n||0);
 const escapeDomain=s=>{try{return new URL(s).hostname}catch{return s}};
 function makeConfig(){return{
- seeds:value('seeds'),patterns:value('patterns'),regex:checked('regex'),caseSensitive:checked('caseSensitive'),searchMode:value('searchMode'),fileTypes:value('fileTypes'),recentHours:number('recentHours'),depth:number('depth'),maxPathSegments:number('maxPathSegments'),maxExtraDirs:number('maxExtraDirs'),siteMinutes:number('siteMinutes'),budgetMode:value('budgetMode'),maxPages:number('maxPages'),maxPagesPerHost:number('maxPagesPerHost'),concurrency:number('concurrency'),perHostConcurrency:number('perHostConcurrency'),timeoutSeconds:number('timeoutSeconds'),discoveryLimit:number('discoveryLimit'),sourceQuery:value('sourceQuery'),followExternal:checked('followExternal'),respectRobots:checked('respectRobots'),enableFTP:checked('enableFTP'),excludeFileTypes:value('excludeFileTypes'),allowedTLDs:value('allowedTLDs'),allowPrivate:checked('allowPrivate'),allowDomains:value('allowDomains'),excludeDomains:value('excludeDomains'),urlContains:value('urlContains'),urlExcludes:value('urlExcludes'),onlyHTML:false,status2xxOnly:checked('status2xxOnly'),providers:sources.filter(s=>checked('src-'+s))};}
+ seeds:value('seeds'),patterns:value('patterns'),regex:checked('regex'),caseSensitive:checked('caseSensitive'),searchMode:value('searchMode'),fileTypes:value('fileTypes'),recentHours:number('recentHours'),depth:number('depth'),maxPathSegments:number('maxPathSegments'),maxExtraDirs:number('maxExtraDirs'),siteMinutes:number('siteMinutes'),budgetMode:value('budgetMode'),maxPages:number('maxPages'),maxPagesPerHost:number('maxPagesPerHost'),concurrency:number('concurrency'),perHostConcurrency:number('perHostConcurrency'),timeoutSeconds:number('timeoutSeconds'),discoveryLimit:number('discoveryLimit'),enumerateSubdomains:checked('enumerateSubdomains'),subdomainUseBuiltIn:checked('subdomainUseBuiltIn'),subdomainUseCT:checked('subdomainUseCT'),subdomainWords:value('subdomainWords'),subdomainLimit:number('subdomainLimit'),sourceQuery:value('sourceQuery'),followExternal:checked('followExternal'),respectRobots:checked('respectRobots'),enableFTP:checked('enableFTP'),excludeFileTypes:value('excludeFileTypes'),allowedTLDs:value('allowedTLDs'),allowPrivate:checked('allowPrivate'),allowDomains:value('allowDomains'),excludeDomains:value('excludeDomains'),urlContains:value('urlContains'),urlExcludes:value('urlExcludes'),onlyHTML:false,status2xxOnly:checked('status2xxOnly'),providers:sources.filter(s=>checked('src-'+s))};}
 function snapshotForm(){const vals={};for(const id of configIDs){vals[id]=$(id).type==='checkbox'?checked(id):value(id)};return vals}
 function loadForm(vals){if(!vals||typeof vals!=='object')return;for(const [id,val] of Object.entries(vals)){if(!configIDs.includes(id)||val===undefined||val===null)continue;const el=$(id);if(el.type==='checkbox')el.checked=Boolean(val);else el.value=String(val)};countTargets()}
 function storeForm(){try{localStorage.setItem('freshsift-config-v1',JSON.stringify(snapshotForm()))}catch{}}
@@ -56,8 +56,8 @@ async function start(){if(isBusy)return;
   }).catch(e=>message('Browser scan failed: '+e.message,true));
   return;
  }
- if(!connected){toggleConnectionPanel(true);message('Connect the Go crawler engine before starting a scan.',true);return};const config=makeConfig();if(config.searchMode!=='files'&&!config.patterns.trim()){message('Enter one or more search phrases.',true);$('patterns').focus();return};if(config.searchMode==='files'&&!config.fileTypes.trim()){message('Enter at least one file extension, such as .jpg.',true);$('fileTypes').focus();return};if(!config.seeds.trim()&&config.providers.length===0){message('Paste targets or enable a discovery source.',true);return}
- isBusy=true;try{await request('/api/start',config);demoMode=false;focusURL='';lastStatus='';message('Scan started. Discovering recent URLs…');storeForm();await poll()}catch(e){message(e.message,true)}finally{isBusy=false}}
+ if(!connected){toggleConnectionPanel(true);message('Connect the Go crawler engine before starting a scan.',true);return};const config=makeConfig();if(config.searchMode!=='files'&&!config.patterns.trim()&&!config.enumerateSubdomains){message('Enter search phrases or enable subdomain enumeration.',true);$('patterns').focus();return};if(config.searchMode==='files'&&!config.fileTypes.trim()){message('Enter at least one file extension, such as .jpg.',true);$('fileTypes').focus();return};if(!config.seeds.trim()&&config.providers.length===0){message('Paste targets or enable a discovery source.',true);return}
+ isBusy=true;try{await request('/api/start',config);demoMode=false;focusURL='';lastStatus='';message('Scan started. '+(config.enumerateSubdomains?'Enumerating seed subdomains…':'Discovering recent URLs…'));storeForm();await poll()}catch(e){message(e.message,true)}finally{isBusy=false}}
 async function stop(){if(!connected&&browserEngine){browserEngine.stop();message('Stopping browser scan');return}try{await request('/api/stop');message('Stopping active requests…')}catch(e){message(e.message,true)}}
 async function pauseResume(){if(!connected&&browserEngine){if(browserEngine.paused){browserEngine.resume();message('Browser scan resumed')}else{browserEngine.pause();message('Browser scan paused')}return}try{let action=current.stats.status==='paused'?'resume':'pause';await request('/api/'+action);message(action==='pause'?'Pause requested.':'Resuming scan…');await poll()}catch(e){message(e.message,true)}}
 async function poll(){if(demoMode||!connected)return;try{const res=await apiFetch('/api/status');if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();current=data;render();if(data.stats.status!==lastStatus){lastStatus=data.stats.status;if(data.stats.status==='completed'){message('Scan complete. Export your matches if needed.');saveHistory(data)}if(data.stats.status==='cancelled'){message('Scan cancelled. Collected matches are available for export.');saveHistory(data)}}}catch(e){message('Status connection error: '+e.message,true)}}
@@ -77,7 +77,70 @@ function renderMatches(){const list=$('matches');list.replaceChildren();const fi
  for(const m of rows){const el=document.createElement('article');el.className='excerpt';const top=document.createElement('div');top.className='excerpt-top';const phrase=document.createElement('span');phrase.className='phrase';phrase.title=m.pattern;phrase.textContent=m.pattern;const short=document.createElement('a');short.className='excerpt-short';short.href=m.url;short.rel='noopener noreferrer';short.target='_blank';short.title=m.url;short.textContent=escapeDomain(m.url);const tag=document.createElement('span');tag.className='source-tag';tag.textContent=m.source;const time=document.createElement('span');time.className='excerpt-time';time.textContent=m.foundAt?new Date(m.foundAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'–';top.append(phrase,short,tag,time);const body=document.createElement('div');body.className='excerpt-content';if(m.kind==='file'){body.textContent='Verified file: '+m.matched+' · '+m.pattern+' · '+(m.status||'FTP')+' status';}else{body.append(document.createTextNode((m.before||'')+' '));const mark=document.createElement('mark');mark.textContent=m.matched;body.append(mark,document.createTextNode(' '+(m.after||'')));}
  const link=document.createElement('a');link.className='excerpt-url';link.href=m.url;link.rel='noopener noreferrer';link.target='_blank';link.title=m.url;link.textContent=m.url;el.append(top,body,link);list.append(el)}}
 function renderLog(){const log=$('activity');log.replaceChildren();const lines=current.logs||[];if(!lines.length){const empty=document.createElement('div');empty.className='activity-empty';empty.textContent='No activity yet. Press GO to begin.';log.append(empty);return};for(const txt of lines.slice(-35)){const div=document.createElement('div');div.className='activity-line';if(txt.includes('ERROR'))div.classList.add('warn');div.textContent=txt;log.append(div)};log.scrollTop=log.scrollHeight}
-function render(){refreshSourceSelect('urlSourceFilter',(current.urls||[]).map(x=>x.source));refreshSourceSelect('matchSourceFilter',(current.matches||[]).map(x=>x.source));renderStats();renderURLs();renderMatches();renderLog()}
+
+function renderSubdomains(){
+ const list=$('subdomainResults');list.replaceChildren();
+ const rows=(current.subdomains||[]).filter(r=>(r.hostname+' '+r.source+' '+(r.addresses||[]).join(' ')).toLowerCase().includes(value('subdomainFilter').toLowerCase()));
+ $('subdomainCount').textContent=fmt(current.stats?.subdomains||current.subdomains?.length||0);
+ if(!rows.length){list.textContent='No subdomains discovered yet. Enable enumeration and supply at least one seed domain.';return}
+ for(const item of rows){
+  const div=document.createElement('div');div.className='subdomain-row';
+  const host=document.createElement('span');host.className='subdomain-host';host.textContent=item.hostname;
+  const meta=document.createElement('span');meta.className='subdomain-meta';
+  meta.textContent=(item.verified?'DNS verified':'CT historical')+' · '+item.source+(item.addresses?.length?' · '+item.addresses.join(', '):'');
+  div.append(host,meta);list.append(div);
+ }
+}
+function countSubdomainWords(){
+ try{
+  const engine=window.FreshSiftSubdomains;
+  const n=engine?.parseWords(value('subdomainWords'),checked('subdomainUseBuiltIn')).length||0;
+  $('subdomainWordCount').textContent=fmt(n)+' candidate words loaded';
+ }catch(e){$('subdomainWordCount').textContent=e.message}
+}
+async function importSubdomainFile(file){
+ if(!file)return;
+ if(file.size>180000){toast('Subdomain wordlist must be 180 KB or less',true);return}
+ try{
+  const txt=await file.text();
+  const combined=[value('subdomainWords').trim(),txt.trim()].filter(Boolean).join('\n');
+  if(combined.length>200000)throw Error('Subdomain wordlist exceeds 200 KB');
+  if(!window.FreshSiftSubdomains?.parseWords(combined,false).length)throw Error('No valid subdomain prefixes in file');
+  $('subdomainWords').value=combined;
+  $('enumerateSubdomains').checked=true;
+  countSubdomainWords();storeForm();toast('Imported subdomain wordlist: '+file.name);
+ }catch(e){toast(e.message,true)}
+}
+function subdomainCSV(rows){
+ return [['Hostname','Source','DNS Verified','Addresses'],...rows.map(r=>[r.hostname,r.source,Boolean(r.verified),(r.addresses||[]).join('; ')])]
+  .map(a=>a.map(csvCell).join(',')).join('\r\n')+'\r\n';
+}
+async function loadSubdomains(){
+ if(!connected&&browserEngine)return browserEngine.allSubdomains();
+ if(!connected)return current.subdomains||[];
+ const r=await apiFetch('/api/subdomains?format=json');
+ if(!r.ok)throw Error('Subdomain export HTTP '+r.status);
+ const data=await r.json();
+ if(!Array.isArray(data))throw Error('Invalid subdomain API response');
+ return data;
+}
+async function exportSubdomains(){
+ try{
+  const rows=await loadSubdomains();
+  if(!rows.length){toast('No subdomains discovered to export',true);return}
+  downloadBlob(subdomainCSV(rows),'freshsift-subdomains.csv','text/csv;charset=utf-8');
+  toast('Exported '+fmt(rows.length)+' discovered subdomains');
+ }catch(e){toast(e.message,true)}
+}
+async function copySubdomains(){
+ try{
+  const rows=await loadSubdomains();
+  if(!rows.length){toast('No subdomains to copy',true);return}
+  await navigator.clipboard.writeText(rows.map(x=>x.hostname).join('\n'));
+  toast('Copied '+fmt(rows.length)+' subdomain hostnames');
+ }catch(e){toast('Clipboard unavailable: '+e.message,true)}
+}
+function render(){refreshSourceSelect('urlSourceFilter',(current.urls||[]).map(x=>x.source));refreshSourceSelect('matchSourceFilter',(current.matches||[]).map(x=>x.source));renderStats();renderURLs();renderMatches();renderLog();renderSubdomains()}
 async function importFile(file){if(!file)return;if(file.size>2_000_000){message('File too large (2 MB maximum).',true);return};const content=await file.text();const lines=content.split(/\r?\n/);const urls=[];for(let line of lines){line=line.trim();if(!line||line.startsWith('#'))continue;if(file.name.toLowerCase().endsWith('.csv'))line=line.split(',')[0].replace(/^"|"$/g,'').trim();if(/^(url|website|domain|host|ip)$/i.test(line))continue;urls.push(line)}if(!urls.length){message('No URL lines found in that file.',true);return};$('seeds').value=[$('seeds').value.trim(),...urls].filter(Boolean).join('\n');$('fileHint').textContent=file.name+' · '+fmt(urls.length)+' added';countTargets();storeForm();toast('Imported '+fmt(urls.length)+' candidate targets')}
 function updatePresets(){const el=$('presetSelect'),stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');el.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Load preset';el.append(opt);for(const name of Object.keys(stored).sort()){const next=document.createElement('option');next.value=name;next.textContent=name;el.append(next)}}
 function savePreset(){const name=window.prompt('Name this configuration preset:');if(!name)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;const stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');stored[trimmed]=snapshotForm();localStorage.setItem('freshsift-presets-v1',JSON.stringify(stored));updatePresets();$('presetSelect').value=trimmed;toast('Preset saved locally in this browser')}
@@ -134,6 +197,7 @@ async function downloadFilteredCSV(){
 function previewScope(){const c=makeConfig(),seeds=c.seeds.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean),summary=[
  'MODE: '+({source:'Whole source + linked resources',visible:'Visible page text',files:'File URLs by extension'})[c.searchMode],
  'MANUAL SEEDS: '+seeds.length+'   DISCOVERY: '+(c.providers.join(', ')||'none'),
+ 'SUBDOMAINS: '+(c.enumerateSubdomains?('enabled · limit '+c.subdomainLimit+' · builtin '+c.subdomainUseBuiltIn+' · CT '+c.subdomainUseCT):'off'),
  'MATCHING: '+(c.searchMode==='files'?(c.fileTypes||'[none]'):(c.regex?'RE2 regex':'Exact strings')+', '+(c.caseSensitive?'case-sensitive':'case-insensitive')),
  'EXCLUDED TYPES: '+(c.excludeFileTypes||'none')+'   TLDs: '+(c.allowedTLDs||'all / IPs permitted'),
  'ROBOTS.TXT: '+(c.respectRobots?'follow':'not enforced')+'   FTP: '+(c.enableFTP?'enabled':'disabled'),
@@ -144,7 +208,13 @@ function saveHistory(data){try{const entries=JSON.parse(localStorage.getItem('fr
 function renderHistory(){const el=$('scanHistory');el.replaceChildren();let history=[];try{history=JSON.parse(localStorage.getItem('freshsift-scan-history')||'[]')}catch{};if(!history.length){el.textContent='No completed scans in this browser yet.';return}for(const h of history){const div=document.createElement('div');div.className='history-entry';div.textContent=new Date(h.date).toLocaleString()+' · '+h.status+' · '+h.mode+' · '+fmt(h.scanned)+' scanned · '+fmt(h.matches)+' matches / '+fmt(h.urls)+' URLs';el.append(div)}}
 function exportSettings(){downloadBlob(JSON.stringify({schema:'freshsift-config-v1',settings:snapshotForm()},null,2),'freshsift-settings.json','application/json')}
 async function importSettings(file){if(!file)return;if(file.size>100000){toast('Settings file exceeds 100 KB',true);return}try{const obj=JSON.parse(await file.text());if(obj.schema!=='freshsift-config-v1'||!obj.settings||typeof obj.settings!=='object')throw Error('Not a FreshSift settings export');loadForm(obj.settings);syncSearchMode();syncBudgetMode();storeForm();toast('Settings imported')}catch(e){toast(e.message,true)}}
-function wire(){if(pagesMode){$('localFiles').addEventListener('change',e=>{browserLocalFiles=[...(e.target.files||[])];$('localCount').textContent=browserLocalFiles.length+' local files selected'});}for(const id of configIDs){$(id).addEventListener('change',()=>{storeForm();if(id==='seeds')countTargets();if(id==='budgetMode')syncBudgetMode();if(id==='searchMode')syncSearchMode()});if(['seeds','patterns','sourceQuery','allowDomains','excludeDomains','urlContains','urlExcludes','fileTypes','excludeFileTypes','allowedTLDs'].includes(id))$(id).addEventListener('input',()=>{if(id==='seeds')countTargets();storeForm()})}
+function wire(){if(pagesMode){$('localFiles').addEventListener('change',e=>{browserLocalFiles=[...(e.target.files||[])];$('localCount').textContent=browserLocalFiles.length+' local files selected'});}for(const id of configIDs){$(id).addEventListener('change',()=>{storeForm();if(id==='seeds')countTargets();if(id==='budgetMode')syncBudgetMode();if(id==='searchMode')syncSearchMode();if(id==='subdomainUseBuiltIn'||id==='subdomainWords')countSubdomainWords()});if(['seeds','patterns','sourceQuery','allowDomains','excludeDomains','urlContains','urlExcludes','fileTypes','excludeFileTypes','allowedTLDs','subdomainWords'].includes(id))$(id).addEventListener('input',()=>{if(id==='seeds')countTargets();storeForm()})}
+ $('subdomainImportBtn').addEventListener('click',()=>$('subdomainFile').click());
+ $('subdomainFile').addEventListener('change',e=>importSubdomainFile(e.target.files?.[0]));
+ $('subdomainFilter').addEventListener('input',renderSubdomains);
+ $('subdomainExport').addEventListener('click',exportSubdomains);
+ $('subdomainCopy').addEventListener('click',copySubdomains);
+ $('subdomainWords').addEventListener('input',countSubdomainWords);
  $('startBtn').addEventListener('click',start);$('stopBtn').addEventListener('click',stop);$('pauseBtn').addEventListener('click',pauseResume);$('chooseFile').addEventListener('click',()=> $('fileInput').click());$('fileInput').addEventListener('change',e=>importFile(e.target.files?.[0]));$('clearSeeds').addEventListener('click',()=>{$('seeds').value='';countTargets();storeForm()});
  const dz=$('dropzone');for(const evt of ['dragover','dragenter'])dz.addEventListener(evt,e=>{e.preventDefault();dz.classList.add('dragging')});for(const evt of ['dragleave','drop'])dz.addEventListener(evt,e=>{e.preventDefault();dz.classList.remove('dragging')});dz.addEventListener('drop',e=>importFile(e.dataTransfer?.files?.[0]));
  $('urlFilter').addEventListener('input',renderURLs);$('urlSourceFilter').addEventListener('change',renderURLs);$('matchFilter').addEventListener('input',renderMatches);$('matchSourceFilter').addEventListener('change',renderMatches);
@@ -158,5 +228,5 @@ function wire(){if(pagesMode){$('localFiles').addEventListener('change',e=>{brow
  $('btnPresets').addEventListener('click',savePreset);$('presetSelect').addEventListener('change',()=>{const presets=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');const selected=presets[value('presetSelect')];if(selected){loadForm(selected);syncBudgetMode();syncSearchMode();storeForm();toast('Preset loaded')}});
  $('servicePreset').addEventListener('change',()=>{$('engineQuery').value=value('servicePreset');openSearchLinks()});$('engineQuery').addEventListener('input',openSearchLinks);$('ipLookup').addEventListener('click',lookupIP);
  document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();start()}if(e.shiftKey&&e.key==='Escape'){e.preventDefault();stop()}})}
-function init(){try{loadForm(JSON.parse(localStorage.getItem('freshsift-config-v1')||'null'))}catch{};try{updatePresets()}catch{};wire();syncBudgetMode();syncSearchMode();$('clock').textContent=(pagesMode?'PAGES CLIENT':'LOCAL ENGINE')+' · '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'}).toUpperCase();renderHistory();if(pagesMode){$('browserLocalGroup').hidden=false;$('browserModeNote').hidden=false;$('engineURL').value=backendBase;toggleConnectionPanel(false);setConnectionState();if(backendBase&&apiToken){connected=true;setConnectionState();}}else{$('btnConnect').textContent='Local engine';}if(demoMode){current=sampleData;$('patterns').value='version 2.4\nexample phrase';$('seeds').value='https://example.org\nhttps://example.net';countTargets();message('DEMO PREVIEW — showing fictitious example results, not a live scan.');render()}else{if(connected)poll();setInterval(poll,1000)}}
+function init(){try{loadForm(JSON.parse(localStorage.getItem('freshsift-config-v1')||'null'))}catch{};try{updatePresets()}catch{};wire();syncBudgetMode();syncSearchMode();countSubdomainWords();$('clock').textContent=(pagesMode?'PAGES CLIENT':'LOCAL ENGINE')+' · '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'}).toUpperCase();renderHistory();if(pagesMode){$('browserLocalGroup').hidden=false;$('browserModeNote').hidden=false;$('engineURL').value=backendBase;toggleConnectionPanel(false);setConnectionState();if(backendBase&&apiToken){connected=true;setConnectionState();}}else{$('btnConnect').textContent='Local engine';}if(demoMode){current=sampleData;$('patterns').value='version 2.4\nexample phrase';$('seeds').value='https://example.org\nhttps://example.net';countTargets();message('DEMO PREVIEW — showing fictitious example results, not a live scan.');render()}else{if(connected)poll();setInterval(poll,1000)}}
 document.addEventListener('DOMContentLoaded',init);
