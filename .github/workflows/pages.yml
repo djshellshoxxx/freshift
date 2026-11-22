@@ -34,6 +34,7 @@ jobs:
           node qa/pages-parity.test.cjs
           node qa/browser-engine.test.cjs
           node qa/extension-contract.test.cjs
+          node qa/browser-bridge.test.cjs
           test -f docs/index.html
           test -f docs/.nojekyll
       - uses: actions/upload-pages-artifact@v4
