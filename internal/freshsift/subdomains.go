@@ -421,7 +421,7 @@ func parseSubdomainWords(raw string, builtin bool) ([]string, error) {
             for _, part := range strings.FieldsFunc(line, func(ch rune) bool {
                 return ch == ',' || ch == ';' || ch == '\r' || ch == '\t' || ch == ' '
             }) {
-                word := strings.Trim(strings.ToLower(strings.TrimSpace(part)), ".")
+                word := strings.Trim(strings.ToLower(strings.TrimSpace(part)), "\"'.")
                 if word == "" || seen[word] || len(word) > 240 {
                     continue
                 }
