@@ -19,7 +19,7 @@ FreshSift can discover subdomains belonging to a seed hostname such as `example.
 
 1. Add the parent host to **Starting websites**, e.g. `github.io` or `https://example.org/`.
 2. Select **Discover subdomains of starting hosts**.
-3. Keep **Use built-in common subdomain wordlist** enabled to try 342 common prefixes (such as `www`, `api`, `mail`, `dev`, `staging`, `vpn` and `git`).
+3. Check **Brute-force DNS using built-in / custom prefixes**, then keep **Include built-in common subdomain wordlist** enabled to try 342 common prefixes (such as `www`, `api`, `mail`, `dev`, `staging`, `vpn` and `git`).
 4. Optionally import a TXT/CSV wordlist, or paste prefixes into **Custom subdomain words**. Words may be separated by newlines, commas, or spaces; nested prefixes such as `api.dev` are accepted. Invalid DNS labels and duplicates are ignored.
 5. Optionally include **historical certificate-transparency names**, select a result limit (50–2,000), then press GO.
 
@@ -30,6 +30,19 @@ The Go version checks DNS with the local resolver; Pages uses the public Google 
 Wordlists are capped at 200 KB / 5,000 unique valid prefixes, scoped to the supplied seed domains (up to five), with a 2,000-result cap and bounded concurrent DNS requests. This does not perform DNS zone transfers or guarantee exhaustive discovery; certificate logs may omit private or older names, and unusually large CT responses may be rejected (the DNS wordlist scan still operates). DNS queries and CT lookups are sent to external resolvers and certificate-log services. No third-party keys or centralized crawler proxy are needed for this feature.
 
 Programmatic Go API: pass `enumerateSubdomains`, `subdomainWords`, `subdomainUseBuiltIn`, `subdomainUseCT`, and `subdomainLimit` in `POST /api/start`. Follow discovery progress in `GET /api/status`, then export all hosts using `GET /api/subdomains?format=csv` (also `json` or `txt`).
+
+## DNS records, reverse DNS and independent crawl-depth controls
+
+Both the Go server and the static GitHub Pages browser crawler expose **separate, opt-in DNS intelligence settings**:
+
+- **Look up DNS records and search values** queries the seed domains' public DNS records; TXT, MX and other DNS answers are included in the searchable results when a search phrase or regex is supplied. Every returned record is also shown in the **DNS records** inventory, even when no phrase matches. Use **DNS-only scan** to collect and search DNS records without fetching webpages or contacting web discovery feeds.
+- **Discover subdomains of starting hosts** is the master checkbox. **Brute-force DNS using built-in / custom prefixes** enables wordlist guessing (built-in list: 342 common prefixes, with TXT/CSV import); **historical certificate-transparency names** can be enabled separately. Passive CT-only searches require no guessing. The discovered subdomain inventory distinguishes DNS-confirmed names from historical CT observations.
+- **Reverse DNS for IPs of crawled pages** queries the public DNS-resolved address of each successfully fetched page's hostname and finds PTR names. PTR hostnames are **forward-confirmed** (their A/AAAA answers must resolve back to the original IP) before they can be crawled. A separate **page PTR depth** setting from 0 to 8 governs links followed from each PTR hostname, independent of the ordinary crawl depth.
+- **Reverse DNS on discovered subdomains with different IPs** compares a discovered hostname's DNS addresses to those of its parent seed host. For any changed address, it performs forward-confirmed PTR lookup and can crawl the resulting hostnames using a **second independent 0–8 depth limit**. This option requires enabling subdomain enumeration.
+
+The **DNS records** and **Reverse DNS hosts** panels can be filtered and exported to separate CSV files. Existing URL, match, CSV and JSON exports continue to work. Go API users can read full inventories using `GET /api/dns-records?format=json|csv` and `GET /api/reverse-dns?format=json|csv`. New `POST /api/start` settings are `discoverDNSRecords`, `dnsOnly`, `subdomainGuess`, `reverseDNSPages`, `reverseDNSPageDepth`, `reverseDNSSubdomains`, and `reverseDNSSubdomainDepth`.
+
+**Technical limits:** Reverse DNS/PTR is *not* a reverse-IP hosting index. Many websites share a single IP but publish no corresponding PTR record; PTR discovery cannot identify every virtual host. A PTR entry is not evidence of a hosted website unless the HTTP crawler fetches one successfully. The Go crawler records the actual HTTP transport peer IP when available (with DNS-resolution fallback), while Pages can only approximate the peer using public DNS answers; CDNs or load balancing can make those answers different from the true HTTP peer. Pages uses public DNS-over-HTTPS and requires CORS/network access; Go uses native DNS resolution for common records and PTR verification. PTR fan-out is capped to 64 distinct origin/IP lookups per scan and remains subject to URL scope filters, private/reserved-address restrictions, robots.txt and global page budgets. Subdomain CT may include stale records; reverse lookup on these names requires a current address. Depth limits apply only to successfully queued PTR-derived hostnames and do not bypass the scan's global resource caps.
 
 ## GitHub Pages client-side execution (experimental)
 

@@ -12,51 +12,58 @@ import (
 
 // Config is the POST /api/start request. All limits are applied server-side.
 type Config struct {
-	Seeds               string   `json:"seeds"`
-	Patterns            string   `json:"patterns"`
-	Regex               bool     `json:"regex"`
-	CaseSensitive       bool     `json:"caseSensitive"`
-	SearchRawHTML       bool     `json:"searchRawHTML"` // legacy; searchMode supersedes it
-	SearchMode          string   `json:"searchMode"`    // source (default), visible, files
-	FileTypes           string   `json:"fileTypes"`     // required in files mode, e.g. .jpg, .db
-	ExcludeFileTypes    string   `json:"excludeFileTypes"`
-	AllowedTLDs         string   `json:"allowedTLDs"`
-	EnableFTP           bool     `json:"enableFTP"`
-	RecentHours         int      `json:"recentHours"`
-	Depth               int      `json:"depth"`
-	MaxPathSegments     int      `json:"maxPathSegments"`
-	MaxExtraDirs        int      `json:"maxExtraDirs"`
-	SiteMinutes         int      `json:"siteMinutes"`
-	BudgetMode          string   `json:"budgetMode"`
-	MaxPages            int      `json:"maxPages"`
-	MaxPagesPerHost     int      `json:"maxPagesPerHost"`
-	Concurrency         int      `json:"concurrency"`
-	PerHostConcurrency  int      `json:"perHostConcurrency"`
-	TimeoutSeconds      int      `json:"timeoutSeconds"`
-	DiscoveryLimit      int      `json:"discoveryLimit"`
-	EnumerateSubdomains bool     `json:"enumerateSubdomains"`
-	SubdomainUseBuiltIn bool     `json:"subdomainUseBuiltIn"`
-	SubdomainUseCT      bool     `json:"subdomainUseCT"`
-	SubdomainWords      string   `json:"subdomainWords"`
-	SubdomainLimit      int      `json:"subdomainLimit"`
-	SourceQuery         string   `json:"sourceQuery"`
-	Providers           []string `json:"providers"`
-	FollowExternal      bool     `json:"followExternal"`
-	RespectRobots       bool     `json:"respectRobots"`
-	AllowPrivate        bool     `json:"allowPrivate"`
-	AllowDomains        string   `json:"allowDomains"`
-	ExcludeDomains      string   `json:"excludeDomains"`
-	URLContains         string   `json:"urlContains"`
-	URLExcludes         string   `json:"urlExcludes"`
-	OnlyHTML            bool     `json:"onlyHTML"`
-	Status2xxOnly       bool     `json:"status2xxOnly"`
+	Seeds                    string   `json:"seeds"`
+	Patterns                 string   `json:"patterns"`
+	Regex                    bool     `json:"regex"`
+	CaseSensitive            bool     `json:"caseSensitive"`
+	SearchRawHTML            bool     `json:"searchRawHTML"` // legacy; searchMode supersedes it
+	SearchMode               string   `json:"searchMode"`    // source (default), visible, files
+	FileTypes                string   `json:"fileTypes"`     // required in files mode, e.g. .jpg, .db
+	ExcludeFileTypes         string   `json:"excludeFileTypes"`
+	AllowedTLDs              string   `json:"allowedTLDs"`
+	EnableFTP                bool     `json:"enableFTP"`
+	RecentHours              int      `json:"recentHours"`
+	Depth                    int      `json:"depth"`
+	MaxPathSegments          int      `json:"maxPathSegments"`
+	MaxExtraDirs             int      `json:"maxExtraDirs"`
+	SiteMinutes              int      `json:"siteMinutes"`
+	BudgetMode               string   `json:"budgetMode"`
+	MaxPages                 int      `json:"maxPages"`
+	MaxPagesPerHost          int      `json:"maxPagesPerHost"`
+	Concurrency              int      `json:"concurrency"`
+	PerHostConcurrency       int      `json:"perHostConcurrency"`
+	TimeoutSeconds           int      `json:"timeoutSeconds"`
+	DiscoveryLimit           int      `json:"discoveryLimit"`
+	EnumerateSubdomains      bool     `json:"enumerateSubdomains"`
+	SubdomainUseBuiltIn      bool     `json:"subdomainUseBuiltIn"`
+	SubdomainUseCT           bool     `json:"subdomainUseCT"`
+	SubdomainGuess           *bool    `json:"subdomainGuess"`
+	DiscoverDNSRecords       bool     `json:"discoverDNSRecords"`
+	DNSOnly                  bool     `json:"dnsOnly"`
+	ReverseDNSPages          bool     `json:"reverseDNSPages"`
+	ReverseDNSPageDepth      int      `json:"reverseDNSPageDepth"`
+	ReverseDNSSubdomains     bool     `json:"reverseDNSSubdomains"`
+	ReverseDNSSubdomainDepth int      `json:"reverseDNSSubdomainDepth"`
+	SubdomainWords           string   `json:"subdomainWords"`
+	SubdomainLimit           int      `json:"subdomainLimit"`
+	SourceQuery              string   `json:"sourceQuery"`
+	Providers                []string `json:"providers"`
+	FollowExternal           bool     `json:"followExternal"`
+	RespectRobots            bool     `json:"respectRobots"`
+	AllowPrivate             bool     `json:"allowPrivate"`
+	AllowDomains             string   `json:"allowDomains"`
+	ExcludeDomains           string   `json:"excludeDomains"`
+	URLContains              string   `json:"urlContains"`
+	URLExcludes              string   `json:"urlExcludes"`
+	OnlyHTML                 bool     `json:"onlyHTML"`
+	Status2xxOnly            bool     `json:"status2xxOnly"`
 }
 
 func DefaultConfig() Config {
 	return Config{
 		RecentHours: 24, Depth: 1, MaxPathSegments: 5, SiteMinutes: 0,
 		MaxPages: 1000, MaxPagesPerHost: 80, Concurrency: 24,
-		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250,
+		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250, ReverseDNSPageDepth: 1, ReverseDNSSubdomainDepth: 1,
 		RespectRobots: true, OnlyHTML: false, Status2xxOnly: true,
 		SearchMode: "source", EnableFTP: true,
 		Providers: []string{"urlscan", "hn"},
@@ -70,10 +77,10 @@ func (c *Config) Normalize() error {
 	if c.SearchMode != "source" && c.SearchMode != "visible" && c.SearchMode != "files" {
 		return errors.New("search mode must be source, visible or files")
 	}
-	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains {
+	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains && !c.DiscoverDNSRecords && !c.ReverseDNSPages {
 		return errors.New("enter at least one search phrase")
 	}
-	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" {
+	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" && !c.DNSOnly {
 		return errors.New("file discovery requires at least one extension, such as .jpg")
 	}
 	for _, spec := range []struct{ name, value string }{
@@ -161,13 +168,33 @@ func (c *Config) Normalize() error {
 	if c.SubdomainLimit < 1 || c.SubdomainLimit > 2000 {
 		return errors.New("subdomain discovery limit must be between 1 and 2000")
 	}
-	if c.EnumerateSubdomains {
+	if c.ReverseDNSPageDepth < 0 || c.ReverseDNSPageDepth > 8 || c.ReverseDNSSubdomainDepth < 0 || c.ReverseDNSSubdomainDepth > 8 {
+		return errors.New("reverse DNS crawl depths must be between 0 and 8")
+	}
+	if c.ReverseDNSSubdomains && !c.EnumerateSubdomains && !c.DNSOnly {
+		return errors.New("reverse DNS of subdomains requires subdomain enumeration")
+	}
+	if c.DNSOnly && !c.DiscoverDNSRecords {
+		return errors.New("DNS-only mode requires DNS record lookup")
+	}
+	if c.DiscoverDNSRecords && strings.TrimSpace(c.Seeds) == "" {
+		return errors.New("DNS record search requires at least one seed domain")
+	}
+	if c.SubdomainGuess == nil {
+		enabled := true // Older API clients without this new setting keep wordlist discovery.
+		c.SubdomainGuess = &enabled
+	}
+	if c.EnumerateSubdomains && !c.DNSOnly {
 		if strings.TrimSpace(c.Seeds) == "" {
 			return errors.New("subdomain discovery requires at least one seed domain")
 		}
-		words, err := parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
-		if err != nil {
-			return err
+		words := []string{}
+		if *c.SubdomainGuess {
+			var err error
+			words, err = parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
+			if err != nil {
+				return err
+			}
 		}
 		if len(words) == 0 && !c.SubdomainUseCT {
 			return errors.New("enable the built-in subdomain list, enter words, or enable CT lookup")
@@ -230,6 +257,9 @@ type Candidate struct {
 	IP               string    `json:"ip,omitempty"`
 	BasePathSegments int       `json:"-"`
 	Resource         bool      `json:"-"` // Embedded asset; does not use page-recursion depth.
+	ReverseOrigin    string    `json:"-"`
+	ReverseHost      string    `json:"-"`
+	ReverseDepth     int       `json:"-"`
 	Depth            int       `json:"depth"`
 }
 
@@ -275,6 +305,8 @@ type Stats struct {
 	FilesFound     int       `json:"filesFound"`
 	Discovered     int       `json:"discovered"`
 	Subdomains     int       `json:"subdomains"`
+	DNSRecords     int       `json:"dnsRecords"`
+	ReverseHosts   int       `json:"reverseHosts"`
 	Queued         int       `json:"queued"`
 	Skipped        int       `json:"skipped"`
 	TruncatedPages int       `json:"truncatedPages"`
@@ -285,11 +317,13 @@ type Stats struct {
 }
 
 type Snapshot struct {
-	Stats      Stats       `json:"stats"`
-	Matches    []Match     `json:"matches"`
-	URLs       []FoundURL  `json:"urls"`
-	Subdomains []Subdomain `json:"subdomains"`
-	Logs       []string    `json:"logs"`
+	Stats      Stats         `json:"stats"`
+	Matches    []Match       `json:"matches"`
+	URLs       []FoundURL    `json:"urls"`
+	Subdomains []Subdomain   `json:"subdomains"`
+	DNSRecords []DNSRecord   `json:"dnsRecords"`
+	ReverseDNS []ReverseHost `json:"reverseDNS"`
+	Logs       []string      `json:"logs"`
 }
 
 func canonicalURL(s string) (string, error) {

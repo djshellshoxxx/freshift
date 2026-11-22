@@ -1,7 +1,7 @@
 /* FreshSift unified CDL dashboard: GitHub Pages client or local Go engine. No trackers. */
 'use strict';
 const $ = id => document.getElementById(id);
-const configIDs=['seeds','patterns','regex','caseSensitive','searchMode','fileTypes','recentHours','depth','maxPathSegments','maxExtraDirs','siteMinutes','budgetMode','maxPages','maxPagesPerHost','concurrency','perHostConcurrency','timeoutSeconds','discoveryLimit','sourceQuery','followExternal','respectRobots','allowPrivate','allowDomains','excludeDomains','urlContains','urlExcludes','enableFTP','excludeFileTypes','allowedTLDs','status2xxOnly','src-urlscan','src-hn','src-brave','src-sitemap','src-rss','src-ct','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT','subdomainWords','subdomainLimit'];
+const configIDs=['seeds','patterns','regex','caseSensitive','searchMode','fileTypes','recentHours','depth','maxPathSegments','maxExtraDirs','siteMinutes','budgetMode','maxPages','maxPagesPerHost','concurrency','perHostConcurrency','timeoutSeconds','discoveryLimit','sourceQuery','followExternal','respectRobots','allowPrivate','allowDomains','excludeDomains','urlContains','urlExcludes','enableFTP','excludeFileTypes','allowedTLDs','status2xxOnly','src-urlscan','src-hn','src-brave','src-sitemap','src-rss','src-ct','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT','subdomainWords','subdomainLimit','subdomainGuess','discoverDNSRecords','dnsOnly','reverseDNSPages','reverseDNSPageDepth','reverseDNSSubdomains','reverseDNSSubdomainDepth'];
 const sources=['urlscan','hn','brave','sitemap','rss','ct'];
 const sampleData={
  stats:{status:'completed',elapsedSeconds:77,pagesScanned:128,pagesPerMinute:99.7,bytesScanned:20753218,MBScanned:20.75,textMB:18.75,matches:42,matchedPages:18,discovered:192,queued:0,skipped:12,errors:2,activeWorkers:0,lastUrl:'https://example.org/blog/updates'},
@@ -24,7 +24,7 @@ const number=id=>Number(value(id));
 const fmt=n=>new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(n||0);
 const escapeDomain=s=>{try{return new URL(s).hostname}catch{return s}};
 function makeConfig(){return{
- seeds:value('seeds'),patterns:value('patterns'),regex:checked('regex'),caseSensitive:checked('caseSensitive'),searchMode:value('searchMode'),fileTypes:value('fileTypes'),recentHours:number('recentHours'),depth:number('depth'),maxPathSegments:number('maxPathSegments'),maxExtraDirs:number('maxExtraDirs'),siteMinutes:number('siteMinutes'),budgetMode:value('budgetMode'),maxPages:number('maxPages'),maxPagesPerHost:number('maxPagesPerHost'),concurrency:number('concurrency'),perHostConcurrency:number('perHostConcurrency'),timeoutSeconds:number('timeoutSeconds'),discoveryLimit:number('discoveryLimit'),enumerateSubdomains:checked('enumerateSubdomains'),subdomainUseBuiltIn:checked('subdomainUseBuiltIn'),subdomainUseCT:checked('subdomainUseCT'),subdomainWords:value('subdomainWords'),subdomainLimit:number('subdomainLimit'),sourceQuery:value('sourceQuery'),followExternal:checked('followExternal'),respectRobots:checked('respectRobots'),enableFTP:checked('enableFTP'),excludeFileTypes:value('excludeFileTypes'),allowedTLDs:value('allowedTLDs'),allowPrivate:checked('allowPrivate'),allowDomains:value('allowDomains'),excludeDomains:value('excludeDomains'),urlContains:value('urlContains'),urlExcludes:value('urlExcludes'),onlyHTML:false,status2xxOnly:checked('status2xxOnly'),providers:sources.filter(s=>checked('src-'+s))};}
+ seeds:value('seeds'),patterns:value('patterns'),regex:checked('regex'),caseSensitive:checked('caseSensitive'),searchMode:value('searchMode'),fileTypes:value('fileTypes'),recentHours:number('recentHours'),depth:number('depth'),maxPathSegments:number('maxPathSegments'),maxExtraDirs:number('maxExtraDirs'),siteMinutes:number('siteMinutes'),budgetMode:value('budgetMode'),maxPages:number('maxPages'),maxPagesPerHost:number('maxPagesPerHost'),concurrency:number('concurrency'),perHostConcurrency:number('perHostConcurrency'),timeoutSeconds:number('timeoutSeconds'),discoveryLimit:number('discoveryLimit'),enumerateSubdomains:checked('enumerateSubdomains'),subdomainUseBuiltIn:checked('subdomainUseBuiltIn'),subdomainUseCT:checked('subdomainUseCT'),subdomainWords:value('subdomainWords'),subdomainLimit:number('subdomainLimit'),subdomainGuess:checked('subdomainGuess'),discoverDNSRecords:checked('discoverDNSRecords'),dnsOnly:checked('dnsOnly'),reverseDNSPages:checked('reverseDNSPages'),reverseDNSPageDepth:number('reverseDNSPageDepth'),reverseDNSSubdomains:checked('reverseDNSSubdomains'),reverseDNSSubdomainDepth:number('reverseDNSSubdomainDepth'),sourceQuery:value('sourceQuery'),followExternal:checked('followExternal'),respectRobots:checked('respectRobots'),enableFTP:checked('enableFTP'),excludeFileTypes:value('excludeFileTypes'),allowedTLDs:value('allowedTLDs'),allowPrivate:checked('allowPrivate'),allowDomains:value('allowDomains'),excludeDomains:value('excludeDomains'),urlContains:value('urlContains'),urlExcludes:value('urlExcludes'),onlyHTML:false,status2xxOnly:checked('status2xxOnly'),providers:sources.filter(s=>checked('src-'+s))};}
 function snapshotForm(){const vals={};for(const id of configIDs){vals[id]=$(id).type==='checkbox'?checked(id):value(id)};return vals}
 function loadForm(vals){if(!vals||typeof vals!=='object')return;for(const [id,val] of Object.entries(vals)){if(!configIDs.includes(id)||val===undefined||val===null)continue;const el=$(id);if(el.type==='checkbox')el.checked=Boolean(val);else el.value=String(val)};countTargets()}
 function storeForm(){try{localStorage.setItem('freshsift-config-v1',JSON.stringify(snapshotForm()))}catch{}}
@@ -56,7 +56,7 @@ async function start(){if(isBusy)return;
   }).catch(e=>message('Browser scan failed: '+e.message,true));
   return;
  }
- if(!connected){toggleConnectionPanel(true);message('Connect the Go crawler engine before starting a scan.',true);return};const config=makeConfig();if(config.searchMode!=='files'&&!config.patterns.trim()&&!config.enumerateSubdomains){message('Enter search phrases or enable subdomain enumeration.',true);$('patterns').focus();return};if(config.searchMode==='files'&&!config.fileTypes.trim()){message('Enter at least one file extension, such as .jpg.',true);$('fileTypes').focus();return};if(!config.seeds.trim()&&config.providers.length===0){message('Paste targets or enable a discovery source.',true);return}
+ if(!connected){toggleConnectionPanel(true);message('Connect the Go crawler engine before starting a scan.',true);return};const config=makeConfig();if(config.searchMode!=='files'&&!config.patterns.trim()&&!config.enumerateSubdomains&&!config.discoverDNSRecords&&!config.reverseDNSPages){message('Enter search phrases or enable discovery.',true);$('patterns').focus();return};if(config.searchMode==='files'&&!config.fileTypes.trim()){message('Enter at least one file extension, such as .jpg.',true);$('fileTypes').focus();return};if(!config.seeds.trim()&&config.providers.length===0){message('Paste targets or enable a discovery source.',true);return}
  isBusy=true;try{await request('/api/start',config);demoMode=false;focusURL='';lastStatus='';message('Scan started. '+(config.enumerateSubdomains?'Enumerating seed subdomains…':'Discovering recent URLs…'));storeForm();await poll()}catch(e){message(e.message,true)}finally{isBusy=false}}
 async function stop(){if(!connected&&browserEngine){browserEngine.stop();message('Stopping browser scan');return}try{await request('/api/stop');message('Stopping active requests…')}catch(e){message(e.message,true)}}
 async function pauseResume(){if(!connected&&browserEngine){if(browserEngine.paused){browserEngine.resume();message('Browser scan resumed')}else{browserEngine.pause();message('Browser scan paused')}return}try{let action=current.stats.status==='paused'?'resume':'pause';await request('/api/'+action);message(action==='pause'?'Pause requested.':'Resuming scan…');await poll()}catch(e){message(e.message,true)}}
@@ -94,7 +94,7 @@ function renderSubdomains(){
 function countSubdomainWords(){
  try{
   const engine=window.FreshSiftSubdomains;
-  const n=engine?.parseWords(value('subdomainWords'),checked('subdomainUseBuiltIn')).length||0;
+  const n=checked('subdomainGuess')?(engine?.parseWords(value('subdomainWords'),checked('subdomainUseBuiltIn')).length||0):0;
   $('subdomainWordCount').textContent=fmt(n)+' candidate words loaded';
  }catch(e){$('subdomainWordCount').textContent=e.message}
 }
@@ -107,7 +107,7 @@ async function importSubdomainFile(file){
   if(combined.length>200000)throw Error('Subdomain wordlist exceeds 200 KB');
   if(!window.FreshSiftSubdomains?.parseWords(combined,false).length)throw Error('No valid subdomain prefixes in file');
   $('subdomainWords').value=combined;
-  $('enumerateSubdomains').checked=true;
+  $('enumerateSubdomains').checked=true;$('subdomainGuess').checked=true;
   countSubdomainWords();storeForm();toast('Imported subdomain wordlist: '+file.name);
  }catch(e){toast(e.message,true)}
 }
@@ -140,7 +140,66 @@ async function copySubdomains(){
   toast('Copied '+fmt(rows.length)+' subdomain hostnames');
  }catch(e){toast('Clipboard unavailable: '+e.message,true)}
 }
-function render(){refreshSourceSelect('urlSourceFilter',(current.urls||[]).map(x=>x.source));refreshSourceSelect('matchSourceFilter',(current.matches||[]).map(x=>x.source));renderStats();renderURLs();renderMatches();renderLog();renderSubdomains()}
+
+function renderDNSRecords(){
+ const target=$('dnsRecordResults');target.replaceChildren();
+ const text=value('dnsRecordFilter').toLowerCase();
+ const rows=(current.dnsRecords||[]).filter(x=>[x.domain,x.type,x.value].join(' ').toLowerCase().includes(text));
+ $('dnsRecordCount').textContent=fmt(current.stats?.dnsRecords||rows.length);
+ if(!rows.length){target.textContent='No DNS records found. Enable DNS record lookup and scan a seed domain.';return}
+ for(const item of rows){
+  const line=document.createElement('div');line.className='subdomain-row';
+  const host=document.createElement('span');host.className='subdomain-host';host.textContent=item.domain+' · '+item.type;
+  const value=document.createElement('span');value.className='subdomain-meta';value.textContent=item.value;
+  line.append(host,value);target.append(line);
+ }
+}
+function renderReverseDNS(){
+ const target=$('reverseDNSResults');target.replaceChildren();
+ const text=value('reverseDNSFilter').toLowerCase();
+ const rows=(current.reverseDNS||[]).filter(x=>[x.ip,x.hostname,x.origin].join(' ').toLowerCase().includes(text));
+ $('reverseDNSCount').textContent=fmt(current.stats?.reverseHosts||rows.length);
+ if(!rows.length){target.textContent='No forward-confirmed PTR hostnames found.';return}
+ for(const item of rows){
+  const line=document.createElement('div');line.className='subdomain-row';
+  const host=document.createElement('span');host.className='subdomain-host';host.textContent=item.hostname;
+  const meta=document.createElement('span');meta.className='subdomain-meta';meta.textContent=item.ip+' · '+item.origin+' · '+(item.verified?'forward verified':'unverified');
+  line.append(host,meta);target.append(line);
+ }
+}
+async function loadDNSRecords(){
+ if(!connected&&browserEngine)return browserEngine.allDNSRecords();
+ if(!connected)return current.dnsRecords||[];
+ const r=await apiFetch('/api/dns-records?format=json');
+ if(!r.ok)throw Error('DNS export HTTP '+r.status);
+ const rows=await r.json();if(!Array.isArray(rows))throw Error('Unexpected DNS response');
+ return rows;
+}
+async function loadReverseDNS(){
+ if(!connected&&browserEngine)return browserEngine.allReverseDNS();
+ if(!connected)return current.reverseDNS||[];
+ const r=await apiFetch('/api/reverse-dns?format=json');
+ if(!r.ok)throw Error('PTR export HTTP '+r.status);
+ const rows=await r.json();if(!Array.isArray(rows))throw Error('Unexpected PTR response');
+ return rows;
+}
+async function exportDNSRecords(){
+ try{
+  const rows=await loadDNSRecords();
+  if(!rows.length){toast('No DNS records to export',true);return}
+  const csv=[['Domain','Type','Value'],...rows.map(x=>[x.domain,x.type,x.value])].map(x=>x.map(csvCell).join(',')).join('\r\n')+'\r\n';
+  downloadBlob(csv,'freshsift-dns-records.csv','text/csv;charset=utf-8');
+ }catch(e){toast(e.message,true)}
+}
+async function exportReverseDNS(){
+ try{
+  const rows=await loadReverseDNS();
+  if(!rows.length){toast('No PTR hostnames to export',true);return}
+  const csv=[['IP','PTR Hostname','Origin','Forward Verified'],...rows.map(x=>[x.ip,x.hostname,x.origin,Boolean(x.verified)])].map(x=>x.map(csvCell).join(',')).join('\r\n')+'\r\n';
+  downloadBlob(csv,'freshsift-reverse-dns.csv','text/csv;charset=utf-8');
+ }catch(e){toast(e.message,true)}
+}
+function render(){refreshSourceSelect('urlSourceFilter',(current.urls||[]).map(x=>x.source));refreshSourceSelect('matchSourceFilter',(current.matches||[]).map(x=>x.source));renderStats();renderURLs();renderMatches();renderLog();renderSubdomains();renderDNSRecords();renderReverseDNS()}
 async function importFile(file){if(!file)return;if(file.size>2_000_000){message('File too large (2 MB maximum).',true);return};const content=await file.text();const lines=content.split(/\r?\n/);const urls=[];for(let line of lines){line=line.trim();if(!line||line.startsWith('#'))continue;if(file.name.toLowerCase().endsWith('.csv'))line=line.split(',')[0].replace(/^"|"$/g,'').trim();if(/^(url|website|domain|host|ip)$/i.test(line))continue;urls.push(line)}if(!urls.length){message('No URL lines found in that file.',true);return};$('seeds').value=[$('seeds').value.trim(),...urls].filter(Boolean).join('\n');$('fileHint').textContent=file.name+' · '+fmt(urls.length)+' added';countTargets();storeForm();toast('Imported '+fmt(urls.length)+' candidate targets')}
 function updatePresets(){const el=$('presetSelect'),stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');el.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Load preset';el.append(opt);for(const name of Object.keys(stored).sort()){const next=document.createElement('option');next.value=name;next.textContent=name;el.append(next)}}
 function savePreset(){const name=window.prompt('Name this configuration preset:');if(!name)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;const stored=JSON.parse(localStorage.getItem('freshsift-presets-v1')||'{}');stored[trimmed]=snapshotForm();localStorage.setItem('freshsift-presets-v1',JSON.stringify(stored));updatePresets();$('presetSelect').value=trimmed;toast('Preset saved locally in this browser')}
@@ -197,7 +256,8 @@ async function downloadFilteredCSV(){
 function previewScope(){const c=makeConfig(),seeds=c.seeds.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean),summary=[
  'MODE: '+({source:'Whole source + linked resources',visible:'Visible page text',files:'File URLs by extension'})[c.searchMode],
  'MANUAL SEEDS: '+seeds.length+'   DISCOVERY: '+(c.providers.join(', ')||'none'),
- 'SUBDOMAINS: '+(c.enumerateSubdomains?('enabled · limit '+c.subdomainLimit+' · builtin '+c.subdomainUseBuiltIn+' · CT '+c.subdomainUseCT):'off'),
+ 'SUBDOMAINS: '+(c.enumerateSubdomains?('enabled · limit '+c.subdomainLimit+' · guesses '+c.subdomainGuess+' · CT '+c.subdomainUseCT):'off'),
+ 'DNS RECORDS: '+c.discoverDNSRecords+'   DNS ONLY: '+c.dnsOnly+'   PAGE PTR: '+c.reverseDNSPages+' / depth '+c.reverseDNSPageDepth+'   SUBDOMAIN PTR: '+c.reverseDNSSubdomains+' / depth '+c.reverseDNSSubdomainDepth,
  'MATCHING: '+(c.searchMode==='files'?(c.fileTypes||'[none]'):(c.regex?'RE2 regex':'Exact strings')+', '+(c.caseSensitive?'case-sensitive':'case-insensitive')),
  'EXCLUDED TYPES: '+(c.excludeFileTypes||'none')+'   TLDs: '+(c.allowedTLDs||'all / IPs permitted'),
  'ROBOTS.TXT: '+(c.respectRobots?'follow':'not enforced')+'   FTP: '+(c.enableFTP?'enabled':'disabled'),
@@ -208,10 +268,16 @@ function saveHistory(data){try{const entries=JSON.parse(localStorage.getItem('fr
 function renderHistory(){const el=$('scanHistory');el.replaceChildren();let history=[];try{history=JSON.parse(localStorage.getItem('freshsift-scan-history')||'[]')}catch{};if(!history.length){el.textContent='No completed scans in this browser yet.';return}for(const h of history){const div=document.createElement('div');div.className='history-entry';div.textContent=new Date(h.date).toLocaleString()+' · '+h.status+' · '+h.mode+' · '+fmt(h.scanned)+' scanned · '+fmt(h.matches)+' matches / '+fmt(h.urls)+' URLs';el.append(div)}}
 function exportSettings(){downloadBlob(JSON.stringify({schema:'freshsift-config-v1',settings:snapshotForm()},null,2),'freshsift-settings.json','application/json')}
 async function importSettings(file){if(!file)return;if(file.size>100000){toast('Settings file exceeds 100 KB',true);return}try{const obj=JSON.parse(await file.text());if(obj.schema!=='freshsift-config-v1'||!obj.settings||typeof obj.settings!=='object')throw Error('Not a FreshSift settings export');loadForm(obj.settings);syncSearchMode();syncBudgetMode();storeForm();toast('Settings imported')}catch(e){toast(e.message,true)}}
-function wire(){if(pagesMode){$('localFiles').addEventListener('change',e=>{browserLocalFiles=[...(e.target.files||[])];$('localCount').textContent=browserLocalFiles.length+' local files selected'});}for(const id of configIDs){$(id).addEventListener('change',()=>{storeForm();if(id==='seeds')countTargets();if(id==='budgetMode')syncBudgetMode();if(id==='searchMode')syncSearchMode();if(id==='subdomainUseBuiltIn'||id==='subdomainWords')countSubdomainWords()});if(['seeds','patterns','sourceQuery','allowDomains','excludeDomains','urlContains','urlExcludes','fileTypes','excludeFileTypes','allowedTLDs','subdomainWords'].includes(id))$(id).addEventListener('input',()=>{if(id==='seeds')countTargets();storeForm()})}
+function wire(){if(pagesMode){$('localFiles').addEventListener('change',e=>{browserLocalFiles=[...(e.target.files||[])];$('localCount').textContent=browserLocalFiles.length+' local files selected'});}for(const id of configIDs){$(id).addEventListener('change',()=>{storeForm();if(id==='seeds')countTargets();if(id==='budgetMode')syncBudgetMode();if(id==='searchMode')syncSearchMode();if(id==='subdomainUseBuiltIn'||id==='subdomainWords'||id==='subdomainGuess')countSubdomainWords();
+  if(id==='dnsOnly'&&checked('dnsOnly'))$('discoverDNSRecords').checked=true;
+  if(id==='reverseDNSSubdomains'&&checked('reverseDNSSubdomains'))$('enumerateSubdomains').checked=true});if(['seeds','patterns','sourceQuery','allowDomains','excludeDomains','urlContains','urlExcludes','fileTypes','excludeFileTypes','allowedTLDs','subdomainWords'].includes(id))$(id).addEventListener('input',()=>{if(id==='seeds')countTargets();storeForm()})}
  $('subdomainImportBtn').addEventListener('click',()=>$('subdomainFile').click());
  $('subdomainFile').addEventListener('change',e=>importSubdomainFile(e.target.files?.[0]));
  $('subdomainFilter').addEventListener('input',renderSubdomains);
+ $('dnsRecordFilter').addEventListener('input',renderDNSRecords);
+ $('reverseDNSFilter').addEventListener('input',renderReverseDNS);
+ $('dnsRecordExport').addEventListener('click',exportDNSRecords);
+ $('reverseDNSExport').addEventListener('click',exportReverseDNS);
  $('subdomainExport').addEventListener('click',exportSubdomains);
  $('subdomainCopy').addEventListener('click',copySubdomains);
  $('subdomainWords').addEventListener('input',countSubdomainWords);

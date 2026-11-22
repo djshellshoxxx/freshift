@@ -70,7 +70,7 @@ async function dnsRecords(name,fetchResource){
 async function discover({config,fetchResource,report=()=>{},log=()=>{},signal}){
  if(!config.enumerateSubdomains)return [];
  const limit=Math.max(1,Math.min(2000,Number(config.subdomainLimit)||250));
- const words=parseWords(config.subdomainWords,!!config.subdomainUseBuiltIn);
+ const words=config.subdomainGuess?parseWords(config.subdomainWords,!!config.subdomainUseBuiltIn):[];
  if(!words.length&&!config.subdomainUseCT)throw Error('Enable built-in subdomain words, import a wordlist, or enable CT');
  const roots=[...new Set(String(config.seeds||'').split(/[\n\r,]+/).map(x=>x.trim())
   .filter(x=>x&&!x.startsWith('#')).map(rootOf).filter(Boolean))].slice(0,5);

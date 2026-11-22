@@ -4,6 +4,12 @@ This is the implemented feature set in the source tree, not a guarantee of exter
 
 | Feature | Status | Relevant code |
 |---|---|---|
+| Optional DNS record lookup and DNS-only search | Implemented; no webpage fetch in DNS-only mode | `dns_intel.go`, `web/dns-intel.js` |
+| Brute-force subdomain guessing vs historical CT-only discovery | Separate checkboxes, configurable wordlist and result cap | `subdomains.go`, `web/subdomains.js` |
+| Forward-confirmed PTR on crawled page host IPs | Implemented; cannot enumerate all shared-IP virtual hosts | `dns_intel.go`, `web/dns-intel.js` |
+| Forward-confirmed PTR for subdomains on IPs not shared with seed hostname | Implemented, scoped and capped | `dns_intel.go`, `web/browser-engine.js` |
+| Independent link-depth limits for page PTR / subdomain PTR | 0–8 for each, subject to global page budgets | `engine.go`, `web/browser-engine.js` |
+| Separate DNS and PTR result panels with filtered CSV | Implemented | `web/app.js`, `main.go` |
 | Pasted URL/IP and FTP seeds, TXT/CSV import, file drop | Implemented | `types.go`, `web/app.js` |
 | Raw HTML, CSS, JS, images and binary `.db` byte searching by default | Implemented within 8 MiB/body | `engine.go`, `match.go`, `fetch.go` |
 | Separate visible-text-only option | Implemented (no JS execution) | `engine.go`, `web/index.html` |
