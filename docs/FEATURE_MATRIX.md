@@ -1,4 +1,4 @@
-# FreshSift v0.3.0 — feature matrix
+# FreshSift v0.4.0 — feature matrix
 
 This is the implemented feature set in the source tree, not a guarantee of external feed availability.
 
