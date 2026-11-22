@@ -1,4 +1,4 @@
-# FreshSift v0.3.0
+# FreshSift v0.4.0
 
 **Local-first, single-executable Go crawler for finding content and file URLs in recently observed web resources.** It has a browser interface, but crawling and searches happen in Go on your own computer.
 
@@ -72,7 +72,7 @@ GitHub Pages cannot host Go. Its JavaScript client can now scan local files and 
 
 **Connecting Pages to your own Go backend (Unraid / Windows / Linux):**
 
-1. Build or download FreshSift v0.3.0. Choose a long random bearer token; set `FRESHSIFT_API_TOKEN` and `FRESHSIFT_ALLOWED_ORIGIN=https://djshellshoxxx.github.io` on the crawler host. Never place the token in the Pages repository or source code.
+1. Build or download FreshSift v0.4.0. Choose a long random bearer token; set `FRESHSIFT_API_TOKEN` and `FRESHSIFT_ALLOWED_ORIGIN=https://djshellshoxxx.github.io` on the crawler host. Never place the token in the Pages repository or source code.
 2. Start the Go server bound to an address reachable by your TLS reverse proxy (see example). This requires both environment variables. Do not expose the bare HTTP port directly to the internet. A VPN or other access control layer is recommended in addition to the API token.
 3. Publish the crawler behind a **valid HTTPS domain** (for example `https://crawler.your-domain.example`). The reverse proxy must forward `/api/` requests without stripping `Authorization`. Do not publish `/` if you only want the Pages UI accessible.
 4. Open GitHub Pages, select **Connect engine**, enter the HTTPS origin and the token, then connect. Only the engine origin is saved in browser local storage; the token is stored in browser session storage (not in GitHub). Clear it with **Disconnect**.
@@ -97,7 +97,7 @@ After selecting **GitHub Actions**, open the [Publish GitHub Pages workflow](htt
 
 ## Start on Windows
 
-1. Download `FreshSift-windows-amd64.exe` from [Releases](../../releases) **once a release has been published**, or build from source.
+1. Download `FreshSift-windows-amd64.exe` from the [v0.4.0 release](https://github.com/djshellshoxxx/freshift/releases/tag/v0.4.0), or build from source.
 2. Launch the EXE; the interface opens at **http://127.0.0.1:8787**. It binds to loopback only.
 3. Paste seed URLs/IPs, or enable discovery feeds. For FTP, specify `ftp://hostname/pub/` (anonymous login only).
 4. Select a **Search mode**, enter strings/regex *or* wanted file extensions, and adjust filters if needed.

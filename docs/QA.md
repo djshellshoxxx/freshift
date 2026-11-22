@@ -1,4 +1,4 @@
-# FreshSift v0.3.0 — QA and validation record
+# FreshSift v0.4.0 — QA and validation record
 
 This QA record distinguishes executed checks from work not verified in the current environment.
 
