@@ -130,6 +130,18 @@ def main():
         excluded=scan(base,{**config,'allowedTLDs':'.com'})
         assert excluded['stats']['pagesScanned']==0 and excluded['stats']['matches']==0,excluded
         print('PASS TLD-only restriction excludes IP-address targets')
+        dns_records=json.loads(get(base+'/api/dns-records?format=json'))
+        reverse_dns=json.loads(get(base+'/api/reverse-dns?format=json'))
+        assert isinstance(dns_records,list) and isinstance(reverse_dns,list)
+        assert 'Domain,Type,Value' in get(base+'/api/dns-records?format=csv')
+        assert 'IP,PTR Hostname,Origin,Forward Verified' in get(base+'/api/reverse-dns?format=csv')
+        before=dict(Fixture.requests)
+        dns_only=scan(base,{'seeds':target,'patterns':'','providers':[],
+                            'discoverDNSRecords':True,'dnsOnly':True,'allowPrivate':True})
+        assert dns_only['stats']['status']=='completed',dns_only
+        assert dns_only['stats']['pagesScanned']==0,dns_only
+        assert Fixture.requests==before,'DNS-only scan must not request web content'
+        print('PASS DNS/PTR API inventories and DNS-only scan without web fetching')
         print('PASS end-to-end HTTP API smoke tests')
     finally:
         proc.terminate()
