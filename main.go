@@ -146,6 +146,7 @@ func newMuxWithSettings(engine *freshsift.Engine, settings remoteSettings) http.
 		jsonResponse(w, 200, map[string]string{"status": "running"})
 	})
 	mux.HandleFunc("GET /api/export", func(w http.ResponseWriter, r *http.Request) { exportResults(w, r, engine.AllResults()) })
+	mux.HandleFunc("GET /api/subdomains", func(w http.ResponseWriter, r *http.Request) { exportSubdomains(w, r, engine.AllSubdomains()) })
 	mux.HandleFunc("GET /api/ip", ipLookup)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -245,6 +246,33 @@ func exportResults(w http.ResponseWriter, r *http.Request, matches []freshsift.M
 		_, _ = w.Write(b.Bytes())
 	default:
 		jsonError(w, 400, "INVALID_FORMAT", "supported formats: csv, json, jsonl")
+	}
+}
+
+func exportSubdomains(w http.ResponseWriter, r *http.Request, rows []freshsift.Subdomain) {
+	format := r.URL.Query().Get("format")
+	switch format {
+	case "", "csv":
+		var buffer bytes.Buffer
+		writer := csv.NewWriter(&buffer)
+		_ = writer.Write([]string{"Hostname", "Source", "DNS Verified", "Addresses"})
+		for _, item := range rows {
+			_ = writer.Write([]string{csvSafe(item.Hostname), csvSafe(item.Source), strconv.FormatBool(item.Verified), csvSafe(strings.Join(item.Addresses, "; "))})
+		}
+		writer.Flush()
+		if err := writer.Error(); err != nil { jsonError(w, 500, "EXPORT_FAILED", err.Error()); return }
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="freshsift-subdomains.csv"`)
+		_, _ = w.Write(buffer.Bytes())
+	case "json":
+		w.Header().Set("Content-Disposition", `attachment; filename="freshsift-subdomains.json"`)
+		jsonResponse(w, 200, rows)
+	case "txt":
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="freshsift-subdomains.txt"`)
+		for _, item := range rows { _, _ = fmt.Fprintln(w, item.Hostname) }
+	default:
+		jsonError(w, 400, "INVALID_FORMAT", "supported subdomain formats: csv, json, txt")
 	}
 }
 
