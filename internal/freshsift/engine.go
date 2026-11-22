@@ -405,6 +405,8 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 				found, err = discoverHN(ctx, discoveryClient, c, log)
 			case "brave":
 				found, err = discoverBrave(ctx, discoveryClient, c, log)
+			case "searxng":
+				found, err = discoverSearXNG(ctx, discoveryClient, c, log)
 			case "sitemap":
 				found, err = discoverSitemaps(ctx, client, c, seeds, log)
 			case "ct":

@@ -47,6 +47,8 @@ type Config struct {
 	SubdomainWords           string   `json:"subdomainWords"`
 	SubdomainLimit           int      `json:"subdomainLimit"`
 	SourceQuery              string   `json:"sourceQuery"`
+	SearxngURL               string   `json:"searxngURL"`
+	SearchEngines            []string `json:"searchEngines"`
 	Providers                []string `json:"providers"`
 	FollowExternal           bool     `json:"followExternal"`
 	RespectRobots            bool     `json:"respectRobots"`
@@ -212,10 +214,42 @@ func (c *Config) Normalize() error {
 	if len(c.SourceQuery) > 256 {
 		return errors.New("discovery query must be 256 characters or fewer")
 	}
-	allowed := map[string]bool{"urlscan": true, "hn": true, "brave": true, "sitemap": true, "ct": true, "rss": true}
+
+	if len(c.SearxngURL) > 512 {
+		return errors.New("SearXNG URL must be at most 512 characters")
+	}
+	c.SearxngURL = strings.TrimRight(strings.TrimSpace(c.SearxngURL), "/")
+	if c.SearxngURL != "" {
+		u, err := url.Parse(c.SearxngURL)
+		if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return errors.New("SearXNG requires an HTTPS base URL without credentials, query or fragment")
+		}
+	}
+	validEngines := map[string]bool{"google": true, "bing": true, "duckduckgo": true, "brave": true, "mojeek": true, "startpage": true, "yandex": true}
+	if len(c.SearchEngines) > len(validEngines) {
+		return errors.New("too many search engines")
+	}
+	seenEngines := map[string]bool{}
+	for _, name := range c.SearchEngines {
+		if !validEngines[name] || seenEngines[name] {
+			return errors.New("invalid or duplicate search engine: " + name)
+		}
+		seenEngines[name] = true
+	}
+	allowed := map[string]bool{"urlscan": true, "hn": true, "brave": true, "searxng": true, "sitemap": true, "ct": true, "rss": true}
 	for _, p := range c.Providers {
 		if !allowed[p] {
 			return errors.New("unknown discovery provider: " + p)
+		}
+	}
+	for _, source := range c.Providers {
+		if source == "searxng" {
+			if c.SearxngURL == "" || len(c.SearchEngines) == 0 {
+				return errors.New("SearXNG needs a configured HTTPS URL and selected search engines")
+			}
+			if strings.TrimSpace(c.SourceQuery) == "" && (c.Regex || strings.TrimSpace(c.Patterns) == "") {
+				return errors.New("SearXNG needs a plain-text discovery query")
+			}
 		}
 	}
 	if c.URLContains != "" && len(c.URLContains) > 256 {
