@@ -113,7 +113,7 @@ func newHTTPClient(timeout time.Duration, allowPrivate bool) *http.Client {
 }
 
 type fetchResult struct {
-	RemoteIP string // Actual HTTP transport peer IP, if available.
+	RemoteIP    string // Actual HTTP transport peer IP, if available.
 	URL         string
 	Body        string
 	Status      int
@@ -138,10 +138,14 @@ func fetchPage(ctx context.Context, client *http.Client, target string) (fetchRe
 	var peerMu sync.Mutex
 	remoteIP := ""
 	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
-		if info.Conn == nil {return}
+		if info.Conn == nil {
+			return
+		}
 		host, _, splitErr := net.SplitHostPort(info.Conn.RemoteAddr().String())
-		if splitErr != nil {return}
-		if ip := net.ParseIP(host);ip != nil {
+		if splitErr != nil {
+			return
+		}
+		if ip := net.ParseIP(host); ip != nil {
 			peerMu.Lock()
 			remoteIP = ip.String()
 			peerMu.Unlock()
@@ -160,7 +164,7 @@ func fetchPage(ctx context.Context, client *http.Client, target string) (fetchRe
 	if len(data) > int(MaxResponseBytes) {
 		return result, fmt.Errorf("response exceeds %d MiB limit", MaxResponseBytes/(1<<20))
 	}
-		peerMu.Lock()
+	peerMu.Lock()
 	connectedIP := remoteIP
 	peerMu.Unlock()
 	result = fetchResult{URL: res.Request.URL.String(), RemoteIP: connectedIP, Body: string(data), Status: res.StatusCode, ContentType: res.Header.Get("Content-Type"), Size: len(data)}
