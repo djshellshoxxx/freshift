@@ -4,6 +4,7 @@ const {BrowserEngine}=require('../web/browser-engine.js');
 const requests=[];
 const urls={
  'https://example.org/':'<html>MAGIC <a href="/origin-child">origin child</a></html>',
+ 'https://example.org/origin-child':'<html>MAGIC child page</html>',
  'https://ptr.example.net/':'<html>MAGIC <a href="/level1">first</a></html>',
  'https://ptr.example.net/level1':'<html>MAGIC <a href="/level2">second</a></html>',
  'https://ptr.example.net/level2':'<html>MAGIC</html>',
@@ -52,6 +53,16 @@ const base={seeds:'https://example.org',patterns:'MAGIC',searchMode:'source',dep
  assert(requests.includes('https://ptr.example.net/level1'),'reverse page depth 1 not honored');
  assert(!requests.includes('https://ptr.example.net/level2'),'reverse page crawl exceeded independent depth');
  assert(!requests.includes('https://example.org/origin-child'),'regular crawl depth 0 exceeded');
+ const overlapping=new BrowserEngine({fetchResource:async raw=>{
+  const u=new URL(raw);
+  if(u.hostname==='dns.google'&&u.searchParams.get('name')==='8.8.8.8.in-addr.arpa'&&u.searchParams.get('type')==='PTR')
+   return {url:raw,status:200,type:'application/json',body:JSON.stringify({Status:0,Answer:[{type:12,data:'example.org.'}]})};
+  return fetchResource(raw);
+ }});
+ await overlapping.start({...base,reverseDNSPages:true,reverseDNSPageDepth:1});
+ assert(overlapping.allResults().some(x=>x.url==='https://example.org/origin-child'),
+  'PTR hostname already in seed queue must retain independent reverse depth');
+
 
  const sub=new BrowserEngine({fetchResource});
  requests.length=0;
