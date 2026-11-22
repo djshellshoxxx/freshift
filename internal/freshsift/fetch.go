@@ -7,8 +7,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -111,6 +113,7 @@ func newHTTPClient(timeout time.Duration, allowPrivate bool) *http.Client {
 }
 
 type fetchResult struct {
+	RemoteIP string // Actual HTTP transport peer IP, if available.
 	URL         string
 	Body        string
 	Status      int
@@ -132,6 +135,19 @@ func fetchPage(ctx context.Context, client *http.Client, target string) (fetchRe
 	}
 	req.Header.Set("User-Agent", "FreshSift/0.1 (+https://github.com/djshellshoxxx/FreshSift; respects robots.txt)")
 	req.Header.Set("Accept", "text/html, text/plain;q=0.8, */*;q=0.1")
+	var peerMu sync.Mutex
+	remoteIP := ""
+	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+		if info.Conn == nil {return}
+		host, _, splitErr := net.SplitHostPort(info.Conn.RemoteAddr().String())
+		if splitErr != nil {return}
+		if ip := net.ParseIP(host);ip != nil {
+			peerMu.Lock()
+			remoteIP = ip.String()
+			peerMu.Unlock()
+		}
+	}}
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	res, err := client.Do(req)
 	if err != nil {
 		return result, err
@@ -144,7 +160,10 @@ func fetchPage(ctx context.Context, client *http.Client, target string) (fetchRe
 	if len(data) > int(MaxResponseBytes) {
 		return result, fmt.Errorf("response exceeds %d MiB limit", MaxResponseBytes/(1<<20))
 	}
-	result = fetchResult{URL: res.Request.URL.String(), Body: string(data), Status: res.StatusCode, ContentType: res.Header.Get("Content-Type"), Size: len(data)}
+		peerMu.Lock()
+	connectedIP := remoteIP
+	peerMu.Unlock()
+	result = fetchResult{URL: res.Request.URL.String(), RemoteIP: connectedIP, Body: string(data), Status: res.StatusCode, ContentType: res.Header.Get("Content-Type"), Size: len(data)}
 	return result, nil
 }
 
