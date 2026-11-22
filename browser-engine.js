@@ -226,3 +226,40 @@ class BrowserEngine {
 const exports={BrowserEngine,visible,references,pattern};
 root.FreshSiftBrowserEngine=exports;if(typeof module!=='undefined'&&module.exports)module.exports=exports;
 })(typeof window!=='undefined'?window:globalThis);
+
+
+/* Page-side connector for the optional user-installed extension. */
+(function(root){
+ if(typeof document==='undefined'||typeof root.postMessage!=='function')return;
+ let seq=0;const pending=new Map();const origin=root.location?.origin;
+ if(!origin)return;
+ const bridge={
+  ready:false,
+  fetch(url,opt={}){
+   return new Promise((resolve,reject)=>{
+    const id=++seq;
+    const release=()=>{const p=pending.get(id);if(!p)return;clearTimeout(p.timer);opt.signal?.removeEventListener('abort',p.abort);pending.delete(id)};
+    const abort=()=>{release();reject(Error('Browser scan cancelled'))};
+    if(opt.signal?.aborted){reject(Error('Browser scan cancelled'));return}
+    const timer=setTimeout(()=>{release();reject(Error('Extension fetch timed out'))},
+      Math.max(5000,(Number(opt.timeoutSeconds)||12)*1000+5000));
+    pending.set(id,{resolve,reject,timer,abort});
+    opt.signal?.addEventListener('abort',abort,{once:true});
+    root.postMessage({freshsift:'request',id,url,method:opt.method||'GET',
+      headers:opt.headers||{},allowPrivate:!!opt.allowPrivate,
+      timeoutSeconds:opt.timeoutSeconds||12},origin);
+   });
+  }
+ };
+ root.FreshSiftExtension=bridge;
+ root.addEventListener('message',event=>{
+  if(event.source!==root||event.origin!==origin)return;
+  const data=event.data;
+  if(data?.freshsift==='ready'){bridge.ready=true;return}
+  if(data?.freshsift!=='response'||!Number.isSafeInteger(data.id))return;
+  const p=pending.get(data.id);if(!p)return;
+  clearTimeout(p.timer);pending.delete(data.id);
+  if(data.result?.error)p.reject(Error(data.result.error));else p.resolve(data.result);
+ });
+ root.postMessage({freshsift:'ping'},origin);
+})(typeof window!=='undefined'?window:globalThis);
