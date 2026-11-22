@@ -605,8 +605,10 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
 			break
 		}
 		known := map[string]bool{}
+		dnsCount := 0
 		for _, row := range resolveWordlist(ctx, root, words, remaining, lookupPublicDNS) {
 			known[row.Hostname] = true
+			dnsCount++
 			emit(row)
 			out = append(out, Candidate{URL: "https://" + row.Hostname + "/", Source: "subdomain-dns"})
 			remaining--
@@ -618,7 +620,8 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
 				log("Subdomain CT " + root + ": " + e.Error() + " (continuing with DNS results)")
 			} else {
 				count := 0
-				for _, name := range parseCTSubdomains(rows, root, remaining) {
+				for _, name := range parseCTSubdomains(rows, root, c.SubdomainLimit) {
+					if remaining <= 0 { break }
 					if known[name] {
 						continue
 					}
@@ -631,7 +634,7 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
 				log(fmt.Sprintf("Subdomain CT %s: %d historical certificate hostnames (not DNS-verified)", root, count))
 			}
 		}
-		log(fmt.Sprintf("Subdomain DNS %s: %d confirmed names; total discovered %d", root, len(known), len(out)))
+		log(fmt.Sprintf("Subdomain inventory %s: %d DNS-confirmed names; %d total discovered", root, dnsCount, len(out)))
 	}
 	return out, nil
 }
