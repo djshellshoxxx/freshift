@@ -197,8 +197,9 @@ class BrowserEngine {
    const recorded=Date.parse(observedAt);
    if(Number.isFinite(recorded)&&Date.now()-recorded>Number(this.cfg.recentHours)*3600000)return;
   }
-  if(this.seen.has(url)||!this.allow(url)||this.seen.size>=this.cfg.maxPages*10)return;
-  this.seen.add(url);this.queue.push({url,source,depth,asset,observedAt,...reverse});this.stats.discovered++;
+  const key=url+(reverse.reverseOrigin?'|reverse:'+reverse.reverseOrigin+'|'+reverse.reverseHost:'');
+  if(this.seen.has(key)||!this.allow(url)||this.seen.size>=this.cfg.maxPages*10)return;
+  this.seen.add(key);this.queue.push({url,source,depth,asset,observedAt,...reverse});this.stats.discovered++;
  }
  async fetch(url,method='GET',headers={}){
   return this.transport(url,{method,headers,timeoutSeconds:this.cfg.timeoutSeconds,signal:this.signal?.signal,allowPrivate:!!this.cfg.allowPrivate});
