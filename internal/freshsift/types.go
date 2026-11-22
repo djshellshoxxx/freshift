@@ -34,6 +34,11 @@ type Config struct {
 	PerHostConcurrency int      `json:"perHostConcurrency"`
 	TimeoutSeconds     int      `json:"timeoutSeconds"`
 	DiscoveryLimit     int      `json:"discoveryLimit"`
+	EnumerateSubdomains bool    `json:"enumerateSubdomains"`
+	SubdomainUseBuiltIn bool    `json:"subdomainUseBuiltIn"`
+	SubdomainUseCT      bool    `json:"subdomainUseCT"`
+	SubdomainWords      string  `json:"subdomainWords"`
+	SubdomainLimit      int     `json:"subdomainLimit"`
 	SourceQuery        string   `json:"sourceQuery"`
 	Providers          []string `json:"providers"`
 	FollowExternal     bool     `json:"followExternal"`
@@ -51,7 +56,7 @@ func DefaultConfig() Config {
 	return Config{
 		RecentHours: 24, Depth: 1, MaxPathSegments: 5, SiteMinutes: 0,
 		MaxPages: 1000, MaxPagesPerHost: 80, Concurrency: 24,
-		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250,
+		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250,
 		RespectRobots: true, OnlyHTML: false, Status2xxOnly: true,
 		SearchMode: "source", EnableFTP: true,
 		Providers: []string{"urlscan", "hn"},
@@ -149,6 +154,22 @@ func (c *Config) Normalize() error {
 	}
 	if c.DiscoveryLimit < 1 || c.DiscoveryLimit > 2000 {
 		return errors.New("discovery limit must be between 1 and 2000")
+	}
+	if c.SubdomainLimit == 0 {
+		c.SubdomainLimit = 250
+	}
+	if c.SubdomainLimit < 1 || c.SubdomainLimit > 2000 {
+		return errors.New("subdomain discovery limit must be between 1 and 2000")
+	}
+	if c.EnumerateSubdomains {
+		if strings.TrimSpace(c.Seeds) == "" {
+			return errors.New("subdomain discovery requires at least one seed domain")
+		}
+		words, err := parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
+		if err != nil { return err }
+		if len(words) == 0 && !c.SubdomainUseCT {
+			return errors.New("enable the built-in subdomain list, enter words, or enable CT lookup")
+		}
 	}
 	if len(c.Patterns) > 10000 {
 		return errors.New("search patterns exceed 10000 characters")
@@ -251,6 +272,7 @@ type Stats struct {
 	MatchedPages   int       `json:"matchedPages"`
 	FilesFound     int       `json:"filesFound"`
 	Discovered     int       `json:"discovered"`
+	Subdomains     int       `json:"subdomains"`
 	Queued         int       `json:"queued"`
 	Skipped        int       `json:"skipped"`
 	TruncatedPages int       `json:"truncatedPages"`
@@ -264,6 +286,7 @@ type Snapshot struct {
 	Stats   Stats      `json:"stats"`
 	Matches []Match    `json:"matches"`
 	URLs    []FoundURL `json:"urls"`
+	Subdomains []Subdomain `json:"subdomains"`
 	Logs    []string   `json:"logs"`
 }
 
