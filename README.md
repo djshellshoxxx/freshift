@@ -38,7 +38,9 @@ export FRESHSIFT_ALLOWED_ORIGIN="https://djshellshoxxx.github.io"
 
 Copy the generated token to a secure password manager first; changing it disconnects Pages sessions. Limit inbound port 8787 to your reverse-proxy host at the network layer. **For a reverse proxy terminating TLS, the Pages-to-engine URL must use `https://`**; browser restrictions may reject an HTTP loopback endpoint from the public Pages HTTPS origin.
 
-GitHub Pages workflow: [`.github/workflows/pages.yml`](.github/workflows/pages.yml). If Pages is not already enabled, choose **Settings → Pages → Build and deployment → Source: GitHub Actions**. On the next push to `main`, the workflow builds and deploys `docs/`. The GitHub Pages URL is only live when GitHub reports a successful Pages deployment; pushing this source does not by itself prove that Pages is enabled.
+GitHub Pages workflow: [`.github/workflows/pages.yml`](.github/workflows/pages.yml). **One-time activation is required by a repository administrator:** open [Settings → Pages](https://github.com/djshellshoxxx/freshift/settings/pages), and under **Build and deployment → Source**, select **GitHub Actions**. GitHub's default `GITHUB_TOKEN` can deploy to an enabled Pages site but **cannot create the Pages site**; the workflow intentionally does not attempt `enablement: true` (which fails with `Resource not accessible by integration`).
+
+After selecting **GitHub Actions**, open the [Publish GitHub Pages workflow](https://github.com/djshellshoxxx/freshift/actions/workflows/pages.yml) and select **Run workflow** on `main`, or push a change to `docs/`, `web/`, `qa/` or the workflow file. Confirm both the `build` and `deploy` jobs succeed before treating https://djshellshoxxx.github.io/freshift/ as live. The workflow tests that the Pages dashboard matches the Go dashboard before uploading the static `docs/` site. If deployment is blocked, the workflow now prints an actionable Pages configuration error rather than attempting privileged site creation.
 
 ### CSV for matching strings and URLs
 
