@@ -1,39 +1,66 @@
+# One-time setup: Settings > Pages > Build and deployment > Source: GitHub Actions.
+# GITHUB_TOKEN can deploy an existing Pages site, but cannot create it.
 name: Publish GitHub Pages
 on:
   push:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'web/**'
+      - 'qa/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
 concurrency:
-  group: 'pages'
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - name: Run static-site tests
+      - name: Check dashboard and Pages asset parity
         run: |
           node --check docs/app.js
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
-          test -f docs/index.html
+          test -s docs/index.html
           test -f docs/.nojekyll
-      - uses: actions/upload-pages-artifact@v4
+          test -s docs/style.css
+          test -s docs/favicon.svg
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: docs
-      - id: deployment
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Verify GitHub Pages is enabled for Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! build_type=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.build_type' 2>/dev/null); then
+            echo "::error title=Enable Pages once::Open https://github.com/$GITHUB_REPOSITORY/settings/pages and select GitHub Actions under Build and deployment > Source. Then re-run this workflow. The default GITHUB_TOKEN cannot create the Pages site."
+            exit 1
+          fi
+          if [ "$build_type" != "workflow" ]; then
+            echo "::error title=Use GitHub Actions as Pages source::Open https://github.com/$GITHUB_REPOSITORY/settings/pages and change Source to GitHub Actions (found: $build_type)."
+            exit 1
+          fi
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy Pages
+        id: deployment
         uses: actions/deploy-pages@v4
