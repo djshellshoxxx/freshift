@@ -87,7 +87,7 @@ class BrowserEngine {
   const stats={...this.stats};stats.queued=this.queue.length;
   if(stats.startedAt){stats.elapsedSeconds=((stats.finishedAt?Date.parse(stats.finishedAt):Date.now())-Date.parse(stats.startedAt))/1000;stats.pagesPerMinute=stats.elapsedSeconds>0?stats.pagesScanned*60/stats.elapsedSeconds:0}
   stats.MBScanned=stats.bytesScanned/1048576;stats.textMB=stats.textBytes/1048576;
-  return {stats,urls:[...this.urls.values()],subdomains:[...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname)).slice(0,500),matches:this.matches.slice(-500),logs:[...this.logs]};
+  return {stats,urls:[...this.urls.values()],subdomains:[...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname)).slice(0,2000),matches:this.matches.slice(-500),logs:[...this.logs]};
  }
  allResults(){return [...this.matches]}
  allSubdomains(){return [...this.subdomains.values()].sort((a,b)=>a.hostname.localeCompare(b.hostname))}
