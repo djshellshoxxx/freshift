@@ -39,6 +39,7 @@ type Config struct {
 	SubdomainUseCT      bool     `json:"subdomainUseCT"`
 	SubdomainGuess      bool     `json:"subdomainGuess"`
 	DiscoverDNSRecords  bool     `json:"discoverDNSRecords"`
+	DNSOnly             bool     `json:"dnsOnly"`
 	ReverseDNSPages     bool     `json:"reverseDNSPages"`
 	ReverseDNSPageDepth int      `json:"reverseDNSPageDepth"`
 	ReverseDNSSubdomains bool    `json:"reverseDNSSubdomains"`
@@ -173,6 +174,7 @@ func (c *Config) Normalize() error {
 	if c.ReverseDNSSubdomains && !c.EnumerateSubdomains {
 		return errors.New("reverse DNS of subdomains requires subdomain enumeration")
 	}
+	if c.DNSOnly && !c.DiscoverDNSRecords {return errors.New("DNS-only mode requires DNS record lookup")}
 	if c.DiscoverDNSRecords && strings.TrimSpace(c.Seeds) == "" {
 		return errors.New("DNS record search requires at least one seed domain")
 	}
