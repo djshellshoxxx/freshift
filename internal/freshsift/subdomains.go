@@ -621,7 +621,9 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
 			} else {
 				count := 0
 				for _, name := range parseCTSubdomains(rows, root, c.SubdomainLimit) {
-					if remaining <= 0 { break }
+					if remaining <= 0 {
+						break
+					}
 					if known[name] {
 						continue
 					}
