@@ -70,7 +70,7 @@ func (c *Config) Normalize() error {
 	if c.SearchMode != "source" && c.SearchMode != "visible" && c.SearchMode != "files" {
 		return errors.New("search mode must be source, visible or files")
 	}
-	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" {
+	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains {
 		return errors.New("enter at least one search phrase")
 	}
 	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" {
