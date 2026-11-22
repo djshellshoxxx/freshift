@@ -260,7 +260,10 @@ func exportSubdomains(w http.ResponseWriter, r *http.Request, rows []freshsift.S
 			_ = writer.Write([]string{csvSafe(item.Hostname), csvSafe(item.Source), strconv.FormatBool(item.Verified), csvSafe(strings.Join(item.Addresses, "; "))})
 		}
 		writer.Flush()
-		if err := writer.Error(); err != nil { jsonError(w, 500, "EXPORT_FAILED", err.Error()); return }
+		if err := writer.Error(); err != nil {
+			jsonError(w, 500, "EXPORT_FAILED", err.Error())
+			return
+		}
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="freshsift-subdomains.csv"`)
 		_, _ = w.Write(buffer.Bytes())
@@ -270,7 +273,9 @@ func exportSubdomains(w http.ResponseWriter, r *http.Request, rows []freshsift.S
 	case "txt":
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="freshsift-subdomains.txt"`)
-		for _, item := range rows { _, _ = fmt.Fprintln(w, item.Hostname) }
+		for _, item := range rows {
+			_, _ = fmt.Fprintln(w, item.Hostname)
+		}
 	default:
 		jsonError(w, 400, "INVALID_FORMAT", "supported subdomain formats: csv, json, txt")
 	}

@@ -15,16 +15,16 @@ import (
 const MaxStoredMatches = 50000
 
 type Engine struct {
-	mu      sync.RWMutex
-	stats   Stats
-	matches []Match
-	urls    map[string]FoundURL
+	mu         sync.RWMutex
+	stats      Stats
+	matches    []Match
+	urls       map[string]FoundURL
 	subdomains map[string]Subdomain
-	logs    []string
-	cfg     Config
-	cancel  context.CancelFunc
-	paused  bool
-	seq     int64
+	logs       []string
+	cfg        Config
+	cancel     context.CancelFunc
+	paused     bool
+	seq        int64
 }
 
 func NewEngine() *Engine {
@@ -185,7 +185,9 @@ func (e *Engine) AllSubdomains() []Subdomain {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	out := make([]Subdomain, 0, len(e.subdomains))
-	for _, row := range e.subdomains { out = append(out, row) }
+	for _, row := range e.subdomains {
+		out = append(out, row)
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 	return out
 }
@@ -357,10 +359,14 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 	if c.EnumerateSubdomains {
 		e.log("Subdomain discovery: DNS wordlist and historical CT names for seed domains")
 		found, err := discoverSubdomains(ctx, c, seeds, discoveryClient, e.recordSubdomain, log)
-		if err != nil { e.err(err) }
+		if err != nil {
+			e.err(err)
+		}
 		sources = append(sources, found...)
 	}
-	if ctx.Err() != nil { return }
+	if ctx.Err() != nil {
+		return
+	}
 	q := newQueue(c.MaxPages, c.MaxPagesPerHost)
 	for _, candidate := range sources {
 		candidate.BasePathSegments = pathSegments(candidate.URL)
