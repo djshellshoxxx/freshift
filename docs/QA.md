@@ -61,3 +61,14 @@ Run `go test -race ./...`, `node qa/ui-contract.test.cjs`, and `node qa/pages-pa
 - `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build`: PASS (Windows PE32+ 64-bit).
 - Browser screenshot attempt with headless Chromium did not complete due to runtime browser limitations. Existing screenshots remain **illustrative**, not live captures.
 - Live GitHub Actions release and Pages publication: must be observed separately after pushing source and enabling Pages.
+
+## Client-side JavaScript crawler — branch QA
+
+The client-only implementation is separate from the Go runtime and is tested with mock HTTP transports:
+
+- qa/browser-engine.test.cjs: source plus CSS/JS/db asset traversal, depth 0 behavior, visible-style text filtering, extension-only file URLs, excluded extensions, robots toggles, CORS error reporting, local-file searching, and resource-cap/private-target checks.
+- qa/extension-contract.test.cjs: Manifest V3 host permissions, source-page restrictions, background HTTP fetch, disallowed FTP and private-network addresses.
+- qa/pages-parity.test.cjs: identical browser/Go dashboard JS/CSS/HTML, matching Go API configuration keys, remote engine contracts.
+- CI executes syntax checks for browser-engine.js, app.js, and both extension scripts in addition to original Go vet, race tests, API smoke and Windows build.
+
+**Verification limit:** Automated tests do not demonstrate real Chromium extension installation, cross-origin extension fetches on live public sites, actual browser screenshots, or successful Pages publication. The Pages workflow needs the site enabled under repository Settings → Pages. Browser content-source discovery is static and best-effort; JavaScript regex is not Go RE2 and FTP is not available in Chromium.

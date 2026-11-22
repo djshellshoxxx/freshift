@@ -9,6 +9,7 @@
 <title>FreshSift · Web discovery, files &amp; source search</title>
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="stylesheet" href="./style.css">
+<script src="./browser-engine.js" defer></script>
 <script src="./app.js" defer></script>
 </head>
 <body>
@@ -31,6 +32,7 @@
     <div class="connection-fields"><label>HTTPS Go engine URL<input id="engineURL" type="url" placeholder="https://crawler.example.org" spellcheck="false" autocomplete="url"></label><label>API token (this browser session only)<input id="engineToken" type="password" placeholder="FRESHSIFT_API_TOKEN" autocomplete="off"></label><button class="btn btn-primary" id="connectSubmit" type="button">Connect</button><button class="btn btn-ghost" id="disconnectEngine" type="button">Disconnect</button></div>
     <p class="connection-note" id="engineConnectionMessage" role="status">Run the Go engine behind an HTTPS reverse proxy with token authentication and the Pages origin explicitly allowed. Credentials are never sent to GitHub.</p>
   </section>
+  <p class="note" id="browserModeNote" hidden>Browser-local JavaScript mode works without a backend. Regular cross-origin requests need CORS. Install the optional <a href="https://github.com/djshellshoxxx/freshift/tree/main/extension" target="_blank" rel="noopener noreferrer">Chromium fetch extension</a> for broader HTTP(S) access, or connect Go for FTP and RE2. <strong>No first-indexed date is guaranteed.</strong></p>
   <div class="workspace">
     <aside class="sidebar" aria-label="Search configuration">
       <div class="side-head"><span class="eyebrow">SCAN SETUP</span><span class="side-number">01 / 03</span></div>
@@ -38,6 +40,7 @@
         <div class="section-head"><label for="seeds" class="field-title">Starting websites <span class="soft">&amp; IPs</span></label><span class="hint-link" id="targetCount">0 TARGETS</span></div>
         <div class="field-wrap"><textarea id="seeds" rows="5" spellcheck="false" placeholder="https://example.org\n192.0.2.40  (use public, reachable IPs)\nexample.net/about"></textarea><span class="field-corner">URL / IP</span></div>
         <div class="file-row" id="dropzone"><input type="file" id="fileInput" accept=".txt,.csv,.list,.tsv" hidden><button class="text-action" id="chooseFile" type="button"><span class="action-icon">＋</span> Import TXT / CSV</button><span class="file-hint" id="fileHint">or drag a file here</span><button type="button" id="clearSeeds" class="text-action muted-action">Clear</button></div>
+        <div class="file-row" id="browserLocalGroup" hidden><label for="localFiles" class="text-action">Search local files</label><input id="localFiles" type="file" multiple><span id="localCount" class="file-hint">No files selected</span></div>
       </section>
 
       <section class="form-section">

@@ -40,3 +40,27 @@ This is the implemented feature set in the source tree, not a guarantee of exter
 | Circuit Drift Labs dark / teal / orange branding | Implemented in both UI variants | `web/style.css` |
 | Pure GitHub Pages browser independently crawling arbitrary URLs and FTP | **Not possible** (needs live Go engine) | HTML-only hosting limitation |
 See [README](../README.md) and [QA](QA.md).
+
+## Client-side availability matrix
+
+The legacy matrix above describes the **Go engine**. This table describes current experimental JavaScript behavior introduced on the client-side implementation branch. Full operational parity without the Go engine is **not** established.
+
+| Feature | Pages alone | Pages + locally installed extension | Go engine |
+|---|---|---|---|
+| Exact string search in local files | Yes, up to 8 MiB/file | Yes | Via URL fetch, not local upload |
+| Source HTML/CSS/JS and accessible binary URLs | CORS accessible | HTTP(S) with host permissions | HTTP(S), FTP |
+| Visible-style text | Static HTML approximation | Static HTML approximation | Static HTML approximation |
+| Extension-only file URL discovery | Candidates verifiable if CORS permits | Candidates verifiable by HTTP HEAD/GET | HTTP HEAD/GET, FTP SIZE |
+| Linked resources at depth zero | Static HTML/CSS/JS | Static HTML/CSS/JS | Static HTML/CSS/JS |
+| Regex | Restricted JS RegExp, not RE2 | Restricted JS RegExp, not RE2 | Go RE2 |
+| Robots checking | CORS accessible; fail closed | Via extension, fail closed | Via Go |
+| Recursive crawl and filtering | Bounded, best effort | Bounded, best effort | Full configured budgets |
+| FTP directory traversal and reads | No | No | Anonymous plain FTP |
+| External discovery feeds | HN, urlscan, sitemap, RSS best effort | HN, urlscan, sitemap, RSS best effort | HN, urlscan, sitemap, RSS, CT, optional Brave |
+| JavaScript-generated links | No | No | No |
+| Session status, live results, pause/resume, CSV/JSON/JSONL | Yes | Yes | Yes |
+| Automatic proof of first indexing time | No | No | No |
+
+**Not yet equivalent:** Browser mode does not yet enforce every Go per-site pacing/time budget and provider contract, and the extension cannot substitute for FTP. The Pages/Go frontend controls remain matched; that does not mean scan execution semantics are identical.
+
+Browser-specific tests are in qa/browser-engine.test.cjs and qa/extension-contract.test.cjs. These are mock HTTP fixture tests, not end-to-end tests against arbitrary public sites. The deployment requires an enabled GitHub Pages site in repository settings.
