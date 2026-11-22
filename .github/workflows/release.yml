@@ -23,6 +23,7 @@ jobs:
           node --check web/app.js
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
+          node qa/release-workflow.test.cjs
           go build -o /tmp/freshsift-release-smoke .
           python3 qa/api-smoke.py /tmp/freshsift-release-smoke
       - name: Cross-compile Windows x64 executable
