@@ -351,7 +351,7 @@ class BrowserEngine {
  async start(config,localFiles=[]){
   if(this.running)throw Error('A scan is already running');
   this.reset();
-  this.cfg={searchMode:'source',seeds:'',patterns:'',depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
+  this.cfg={searchMode:'source',seeds:'',patterns:'',subdomainGuess:true,depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
   this.cfg.maxPages=Math.max(1,Math.min(100000,Number(this.cfg.maxPages)||1000));
   this.cfg.maxPagesPerHost=Math.max(1,Math.min(10000,Number(this.cfg.maxPagesPerHost)||80));
   this.cfg.perHostConcurrency=Math.max(1,Math.min(10,Number(this.cfg.perHostConcurrency)||2));
@@ -366,15 +366,19 @@ class BrowserEngine {
    this.cfg[key]=val;
   }
   if(this.cfg.reverseDNSSubdomains&&!this.cfg.enumerateSubdomains)throw Error('Enable subdomain enumeration before subdomain PTR discovery');
+  if(this.cfg.dnsOnly&&!this.cfg.discoverDNSRecords)throw Error('DNS-only mode requires DNS record lookup');
   if(this.cfg.enumerateSubdomains&&!this.cfg.subdomainGuess&&!this.cfg.subdomainUseCT)throw Error('Select subdomain guessing and/or certificate logs');
   if(!['source','visible','files'].includes(this.cfg.searchMode))throw Error('Unsupported search mode');
-  if(this.cfg.searchMode==='files'&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
+  if(this.cfg.searchMode==='files'&&!this.cfg.dnsOnly&&!exts(this.cfg.fileTypes).length)throw Error('Enter file extensions');
   if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains&&!this.cfg.discoverDNSRecords&&!this.cfg.reverseDNSPages)throw Error('Enter search phrase or enable DNS discovery');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
   if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
   this.log('Browser crawl started (direct requests need CORS or optional extension).');
   try{
+   if(this.cfg.dnsOnly){
+    await this.discoverDNS();
+   }else{
    await this.scanLocal(localFiles);
    for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
    await this.discoverDNS();
@@ -386,6 +390,7 @@ class BrowserEngine {
    await this.reverseFromSubdomains();
    await this.discover();
    await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
+   }
    this.stats.status=this.cancelled?'cancelled':'completed';
   }finally{this.running=false;this.stats.finishedAt=new Date().toISOString();this.onUpdate(this.snapshot())}
   return this.snapshot();
