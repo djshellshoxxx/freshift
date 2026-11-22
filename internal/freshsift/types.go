@@ -37,7 +37,7 @@ type Config struct {
 	EnumerateSubdomains bool     `json:"enumerateSubdomains"`
 	SubdomainUseBuiltIn bool     `json:"subdomainUseBuiltIn"`
 	SubdomainUseCT      bool     `json:"subdomainUseCT"`
-	SubdomainGuess      bool     `json:"subdomainGuess"`
+	SubdomainGuess      *bool    `json:"subdomainGuess"`
 	DiscoverDNSRecords  bool     `json:"discoverDNSRecords"`
 	DNSOnly             bool     `json:"dnsOnly"`
 	ReverseDNSPages     bool     `json:"reverseDNSPages"`
@@ -80,7 +80,7 @@ func (c *Config) Normalize() error {
 	if c.SearchMode != "files" && strings.TrimSpace(c.Patterns) == "" && !c.EnumerateSubdomains && !c.DiscoverDNSRecords && !c.ReverseDNSPages {
 		return errors.New("enter at least one search phrase")
 	}
-	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" {
+	if c.SearchMode == "files" && strings.TrimSpace(c.FileTypes) == "" && !c.DNSOnly {
 		return errors.New("file discovery requires at least one extension, such as .jpg")
 	}
 	for _, spec := range []struct{ name, value string }{
@@ -178,12 +178,16 @@ func (c *Config) Normalize() error {
 	if c.DiscoverDNSRecords && strings.TrimSpace(c.Seeds) == "" {
 		return errors.New("DNS record search requires at least one seed domain")
 	}
+	if c.SubdomainGuess==nil {
+		enabled:=true // Older API clients without this new setting keep wordlist discovery.
+		c.SubdomainGuess=&enabled
+	}
 	if c.EnumerateSubdomains {
 		if strings.TrimSpace(c.Seeds) == "" {
 			return errors.New("subdomain discovery requires at least one seed domain")
 		}
 		words := []string{}
-		if c.SubdomainGuess {
+		if *c.SubdomainGuess {
 			var err error
 			words, err = parseSubdomainWords(c.SubdomainWords, c.SubdomainUseBuiltIn)
 			if err != nil {return err}
