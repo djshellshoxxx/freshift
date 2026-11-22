@@ -44,6 +44,16 @@ The **DNS records** and **Reverse DNS hosts** panels can be filtered and exporte
 
 **Technical limits:** Reverse DNS/PTR is *not* a reverse-IP hosting index. Many websites share a single IP but publish no corresponding PTR record; PTR discovery cannot identify every virtual host. A PTR entry is not evidence of a hosted website unless the HTTP crawler fetches one successfully. The Go crawler records the actual HTTP transport peer IP when available (with DNS-resolution fallback), while Pages can only approximate the peer using public DNS answers; CDNs or load balancing can make those answers different from the true HTTP peer. Pages uses public DNS-over-HTTPS and requires CORS/network access; Go uses native DNS resolution for common records and PTR verification. PTR fan-out is capped to 64 distinct origin/IP lookups per scan and remains subject to URL scope filters, private/reserved-address restrictions, robots.txt and global page budgets. Subdomain CT may include stale records; reverse lookup on these names requires a current address. Depth limits apply only to successfully queued PTR-derived hostnames and do not bypass the scan's global resource caps.
 
+## Selectable search engines (Go + GitHub Pages)
+
+FreshSift supports optional multi-engine search with **Google, Bing, DuckDuckGo, Brave, Mojeek, Startpage, and Yandex** checkboxes, plus **Select all engines**. Advanced Research opens its query in the selected public search-engine websites; these external links **do not** import results automatically.
+
+For **automatic discovery**, enable the **SearXNG** source, configure a public HTTPS SearXNG instance base URL, select the engines it supports, and enter a plain-text **Discovery keyword** (or a non-regex search phrase). FreshSift queries the configured instance's `/search?format=json` endpoint, paginates up to five pages, deduplicates URLs, and adds candidates to the normal crawl queue. Per-URL source provenance includes the underlying search engine when SearXNG reports it. The existing URL/domain filters, robots.txt restrictions, page budgets, and exports still apply.
+
+The SearXNG instance must enable JSON output and the requested search engines. Public instances may disable JSON or individual engines, and search-result freshness filters are only best-effort; they do not prove first indexing. Go uses its existing public-network protections. Standalone Pages needs a CORS-enabled instance, the optional extension, or a connected Go engine. The Brave API is a separate Go-only option using `BRAVE_SEARCH_API_KEY`. Neither the retired Bing Search API nor Google Custom Search JSON API (closed to new users) is used for unrestricted direct imports.
+
+Example `POST /api/start` fields: `"providers":["searxng"]`, `"searxngURL":"https://search.example.org"`, `"searchEngines":["google","bing","duckduckgo"]`, `"sourceQuery":"your query"`.
+
 ## GitHub Pages client-side execution (experimental)
 
 The Pages dashboard now runs a JavaScript crawler **in the browser** when no Go engine is connected. No Go binary or external backend is needed for:
@@ -97,7 +107,7 @@ After selecting **GitHub Actions**, open the [Publish GitHub Pages workflow](htt
 
 ## Start on Windows
 
-1. Download `FreshSift-windows-amd64.exe` from the [v0.4.0 release](https://github.com/djshellshoxxx/freshift/releases/tag/v0.4.0), or build from source.
+1. Download `FreshSift-windows-amd64.exe` from [Releases](../../releases) **once a release has been published**, or build from source.
 2. Launch the EXE; the interface opens at **http://127.0.0.1:8787**. It binds to loopback only.
 3. Paste seed URLs/IPs, or enable discovery feeds. For FTP, specify `ftp://hostname/pub/` (anonymous login only).
 4. Select a **Search mode**, enter strings/regex *or* wanted file extensions, and adjust filters if needed.

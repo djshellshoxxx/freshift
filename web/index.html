@@ -75,12 +75,26 @@
           <label class="source"><input type="checkbox" id="src-rss"><span class="source-body"><span class="source-icon">◧</span> RSS / Atom <small>SEEDS</small></span></label>
           <label class="source"><input type="checkbox" id="src-ct"><span class="source-body"><span class="source-icon">◇</span> CT logs <small>SEEDS</small></span></label>
           <label class="source"><input type="checkbox" id="src-brave"><span class="source-body"><span class="source-icon">◈</span> Brave API <small>KEY</small></span></label>
+          <label class="source"><input type="checkbox" id="src-searxng"><span class="source-body"><span class="source-icon">⌕</span> SearXNG <small>CONFIG</small></span></label>
         </div>
         <div class="two-fields">
           <label class="stack-field"><span>Source age window</span><select id="recentHours"><option value="1">Last 1 hour</option><option value="6">Last 6 hours</option><option value="12">Last 12 hours</option><option value="24" selected>Last 24 hours</option><option value="48">Last 48 hours</option><option value="72">Last 3 days</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option></select></label>
           <label class="stack-field"><span>Discover up to / source</span><select id="discoveryLimit"><option value="50">50 URLs</option><option value="100">100 URLs</option><option value="250" selected>250 URLs</option><option value="500">500 URLs</option><option value="1000">1,000 URLs</option><option value="2000">2,000 URLs</option></select></label>
         </div>
-        <label class="stack-field full-field"><span>Discovery keyword <em>(HN / Brave)</em></span><input id="sourceQuery" type="text" placeholder="Optional: service name or topic" maxlength="256"></label>
+        <label class="stack-field full-field"><span>Discovery keyword <em>(HN / Brave / SearXNG)</em></span><input id="sourceQuery" type="text" placeholder="Optional: topic or site:domain" maxlength="256"></label>
+        <label class="stack-field full-field"><span>SearXNG HTTPS base URL <em>(automatic result import)</em></span><input id="searxngURL" type="url" maxlength="512" spellcheck="false" placeholder="https://search.example.org"></label>
+        <div class="section-head"><span class="field-title">Select search engines</span><span class="hint-link">SELECT ANY / ALL</span></div>
+        <div class="tick-list">
+          <label><input type="checkbox" id="allSearchEngines"> Select all engines</label>
+          <label><input type="checkbox" id="engine-google" checked> Google</label>
+          <label><input type="checkbox" id="engine-bing" checked> Bing</label>
+          <label><input type="checkbox" id="engine-duckduckgo" checked> DuckDuckGo</label>
+          <label><input type="checkbox" id="engine-brave" checked> Brave</label>
+          <label><input type="checkbox" id="engine-mojeek"> Mojeek</label>
+          <label><input type="checkbox" id="engine-startpage"> Startpage</label>
+          <label><input type="checkbox" id="engine-yandex"> Yandex</label>
+        </div>
+        <div class="note">The selected engines control external search links and which engines SearXNG requests when enabled. SearXNG needs JSON output and support for those engines. GitHub Pages needs CORS or the optional extension. The separate Brave API source requires a server-side key.</div>
         <div class="note">Recent scan, post, or certificate times are <strong>not</strong> proof that a page was first indexed.</div>
       </section>
 
@@ -181,7 +195,7 @@
       <div class="lower-grid">
         <details class="bottom-panel" open><summary><span class="eyebrow">ENGINE OUTPUT</span><strong>Activity log</strong><span class="summary-arrow">⌄</span></summary><div class="activity" id="activity"><div class="activity-empty">No activity yet. Press GO to begin.</div></div></details>
         <details class="bottom-panel"><summary><span class="eyebrow">ADVANCED RESEARCH</span><strong>Search engines &amp; service discovery</strong><span class="summary-arrow">⌄</span></summary><div class="research">
-          <p>Build a query for public search engines. These buttons open external search results; they do not import those results into the crawler.</p>
+          <p>Build a query for public search engines. The links below use your selected engines; to import URLs automatically, enable SearXNG discovery above.</p>
           <div class="two-fields"><label class="stack-field"><span>Service preset</span><select id="servicePreset"><option value="">Custom query</option><option value='intitle:"Grafana"'>Grafana dashboards</option><option value='intitle:"Jenkins"'>Jenkins servers</option><option value='intitle:"Index of /"'>Directory listings</option><option value='intitle:"nginx"'>nginx pages</option><option value='"Apache2 Ubuntu Default Page"'>Apache default pages</option><option value='intitle:"Kibana"'>Kibana interfaces</option></select></label><label class="stack-field"><span>IP lookup (InternetDB)</span><div class="inline-form"><input type="text" id="ipInput" placeholder="1.1.1.1"><button type="button" id="ipLookup" class="btn btn-outline btn-small">Lookup</button></div></label></div>
           <label class="stack-field full-field"><span>Advanced search operators / service keywords</span><input id="engineQuery" placeholder='intitle:"Grafana" site:example.org'></label>
           <div class="engine-links" id="engineLinks"></div><pre id="ipOutput" class="ip-output" hidden></pre>
