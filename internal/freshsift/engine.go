@@ -363,7 +363,7 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 	discoveryClient := newHTTPClient(15*time.Second, false)
 	sources := append([]Candidate{}, seeds...)
 	log := func(line string) { e.log(line) }
-	for _, provider := range c.Providers {
+	if !c.DNSOnly {for _, provider := range c.Providers {
 		if ctx.Err() != nil {
 			return
 		}
@@ -388,7 +388,7 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 			e.err(err)
 		}
 		sources = append(sources, found...)
-	}
+	}}
 	if ctx.Err() != nil {return}
 	if c.DiscoverDNSRecords {
 		seenDNS:=map[string]bool{}
