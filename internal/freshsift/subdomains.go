@@ -5,7 +5,6 @@ import (
     "encoding/json"
     "errors"
     "fmt"
-    "io"
     "net"
     "net/http"
     "net/url"
@@ -582,7 +581,3 @@ func discoverSubdomains(ctx context.Context, c Config, seeds []Candidate, client
     return out, nil
 }
 
-// The max response size is inherited from discoveryRequest (4 MiB).
-// Large public suffix zones such as github.io may exceed that CT limit;
-// imported wordlists and DNS guesses remain available in that case.
-var _ io.Reader = (*strings.Reader)(nil)
