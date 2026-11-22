@@ -25,6 +25,7 @@ jobs:
           node --check web/app.js
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
+          node qa/browser-engine.test.cjs
       - name: End-to-end local HTTP API smoke tests
         run: |
           go build -o /tmp/freshsift-ci .
