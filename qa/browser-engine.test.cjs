@@ -86,6 +86,8 @@ async function scan(config,fetchResource=mockTransport){const engine=new Browser
  assert(!domainResult.state.subdomains.some(x=>x.hostname==='www.github.io'),'wildcard DNS answer must not count as a discovered host');
  assert(domainResult.matches.some(x=>x.url.includes('api.github.io')),'discovered subdomain not added to crawler');
  assert(dnsSeen.includes('api.github.io'),'custom wordlist not queried via DoH');
+ const enumerateOnly=await scan(cfg({seeds:'https://github.io',patterns:'',allowedTLDs:'.io',providers:[],enumerateSubdomains:true,subdomainUseBuiltIn:false,subdomainUseCT:false,subdomainWords:'api',subdomainLimit:10,respectRobots:false}),subdomainTransport);
+ assert(enumerateOnly.state.subdomains.some(x=>x.hostname==='api.github.io'),'enumeration-only scan should work without content phrases');
  const cancelEngine=new BrowserEngine({fetchResource:mockTransport});cancelEngine.stop();assert.equal(cancelEngine.snapshot().stats.status,'idle');
  console.log('PASS: browser source assets, visible, filetypes, exclusions, robots, CORS reporting');
 })().catch(e=>{console.error(e);process.exitCode=1});
