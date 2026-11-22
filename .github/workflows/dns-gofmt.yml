@@ -1,0 +1,28 @@
+name: Temporary FreshSift DNS Go formatting
+on:
+  push:
+    branches: [feat/dns-records-reverse-ptr-depth-20261122]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/dns-records-reverse-ptr-depth-20261122
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Format DNS and reverse-DNS Go changes
+        run: |
+          gofmt -w main.go internal/freshsift/types.go internal/freshsift/engine.go internal/freshsift/subdomains.go internal/freshsift/dns_intel.go internal/freshsift/dns_intel_test.go
+          if git diff --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add main.go internal/freshsift/types.go internal/freshsift/engine.go internal/freshsift/subdomains.go internal/freshsift/dns_intel.go internal/freshsift/dns_intel_test.go
+          git commit -m "style: gofmt DNS and PTR feature"
+          git push origin HEAD:feat/dns-records-reverse-ptr-depth-20261122
