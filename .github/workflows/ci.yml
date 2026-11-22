@@ -15,9 +15,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Format
-        run: |
-          gofmt -d .
-          test -z "$(gofmt -l .)"
+        run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
       - name: Tests (race detector)

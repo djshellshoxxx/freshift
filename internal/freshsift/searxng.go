@@ -33,10 +33,10 @@ func discoverSearXNG(ctx context.Context, client *http.Client, c Config, log sou
 	seen := map[string]bool{}
 	for page := 1; page <= 5 && len(out) < c.DiscoveryLimit; page++ {
 		params := url.Values{
-			"q": {query},
-			"format": {"json"},
-			"pageno": {strconv.Itoa(page)},
-			"engines": {strings.Join(c.SearchEngines, ",")},
+			"q":          {query},
+			"format":     {"json"},
+			"pageno":     {strconv.Itoa(page)},
+			"engines":    {strings.Join(c.SearchEngines, ",")},
 			"time_range": {timeRange},
 		}
 		endpoint := strings.TrimRight(c.SearxngURL, "/") + "/search?" + params.Encode()
