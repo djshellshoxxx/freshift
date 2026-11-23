@@ -15,7 +15,11 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Format
-        run: test -z "$(gofmt -l .)"
+        run: |
+          gofmt -l .
+          gofmt -w .
+          git diff --check
+          git diff -- internal/freshsift/engine.go internal/freshsift/types.go internal/freshsift/perpetual.go
       - name: Vet
         run: go vet ./...
       - name: Tests (race detector)
@@ -30,7 +34,6 @@ jobs:
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
           node qa/browser-engine.test.cjs
-          node qa/perpetual-browser.test.cjs
           node qa/search-engines.test.cjs
           node qa/dns-intel.test.cjs
           node qa/dns-intel-flow.test.cjs

@@ -70,3 +70,7 @@ The legacy matrix above describes the **Go engine**. This table describes curren
 **Not yet equivalent:** Browser mode does not yet enforce every Go per-site pacing/time budget and provider contract, and the extension cannot substitute for FTP. The Pages/Go frontend controls remain matched; that does not mean scan execution semantics are identical.
 
 Browser-specific tests are in qa/browser-engine.test.cjs and qa/extension-contract.test.cjs. These are mock HTTP fixture tests, not end-to-end tests against arbitrary public sites. The deployment requires an enabled GitHub Pages site in repository settings.
+
+### Continuous discovery mode
+
+Both interfaces expose `perpetual` and `rescanMinutes` and cycle through enabled discovery feeds and a bounded URL revisit queue until stopped. The Go process continues when the dashboard is closed and can restore its opt-in persisted configuration at process startup; standalone Pages only runs during an open browser tab (or controls a connected always-on Go process). Match deduplication and the existing per-cycle scan budgets are applied. Automatic discovery of every indexed page cannot be guaranteed by public discovery sources.
