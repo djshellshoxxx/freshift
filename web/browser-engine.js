@@ -81,9 +81,10 @@ class BrowserEngine {
  constructor({fetchResource=nativeFetch,onUpdate=()=>{}}={}){this.transport=fetchResource;this.onUpdate=onUpdate;this.reset()}
  reset(){
   this.running=false;this.paused=false;this.cancelled=false;this.queue=[];this.seen=new Set();this.hostCounts=new Map();this.robots=new Map();
+  this.knownURLs=new Map();this.matchKeys=new Map();
   this.matches=[];this.urls=new Map();this.subdomains=new Map();this.dnsRecords=new Map();this.reverseDNS=new Map();
   this.reverseSeen=new Set();this.reverseLookupHosts=new Set();this.logs=[];this.signal=null;this.processed=0;this.hostActive=new Map();this.hostStarted=new Map();
-  this.stats={status:'idle',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,subdomains:0,dnsRecords:0,reverseHosts:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
+  this.stats={status:'idle',cycles:0,nextRunAt:'',startedAt:'',finishedAt:'',elapsedSeconds:0,pagesScanned:0,pagesPerMinute:0,bytesScanned:0,textBytes:0,MBScanned:0,textMB:0,matches:0,matchedPages:0,filesFound:0,discovered:0,subdomains:0,dnsRecords:0,reverseHosts:0,queued:0,skipped:0,truncatedPages:0,errors:0,activeWorkers:0,lastUrl:'',lastError:''};
  }
  snapshot(){
   const stats={...this.stats};stats.queued=this.queue.length;
@@ -104,7 +105,7 @@ class BrowserEngine {
    p.re.lastIndex=0;let m,i=0;
    while((m=p.re.exec(row.value))&&i++<30){
     const a=m.index,b=a+m[0].length;
-    this.addMatch(c,p.text,m[0],row.type+' '+row.value.slice(Math.max(0,a-70),a),row.value.slice(b,b+70),'dns',200);
+    this.addMatch(c,p.text,m[0],row.type+' '+row.value.slice(Math.max(0,a-70),a),row.value.slice(b,b+70),'dns',200,a);
     if(!m[0])p.re.lastIndex++;
    }
   }
@@ -200,6 +201,10 @@ class BrowserEngine {
   const key=url+(reverse.reverseOrigin?'|reverse:'+reverse.reverseOrigin+'|'+reverse.reverseHost:'');
   if(this.seen.has(key)||!this.allow(url)||this.seen.size>=this.cfg.maxPages*10)return;
   this.seen.add(key);this.queue.push({url,source,depth,asset,observedAt,...reverse});this.stats.discovered++;
+  if(this.cfg.perpetual&&!reverse.reverseOrigin&&!this.knownURLs.has(url)){
+   if(this.knownURLs.size>=20000)this.knownURLs.delete(this.knownURLs.keys().next().value);
+   this.knownURLs.set(url,{url,depth,asset,observedAt});
+  }
  }
  async fetch(url,method='GET',headers={}){
   return this.transport(url,{method,headers,timeoutSeconds:this.cfg.timeoutSeconds,signal:this.signal?.signal,allowPrivate:!!this.cfg.allowPrivate});
@@ -217,9 +222,16 @@ class BrowserEngine {
   for(const r of rules){if(u.pathname.startsWith(r.prefix)&&r.prefix.length>=length){length=r.prefix.length;allow=r.allow}}
   return allow;
  }
- addMatch(c,term,matched,before,after,kind,status){
+ addMatch(c,term,matched,before,after,kind,status,offset=0){
+  if(this.cfg.perpetual){
+   const key=[c.url,term,matched,before,after,kind,offset].join('\u0000');
+   if(this.matchKeys.has(key))return;
+   if(this.matchKeys.size>=100000)this.matchKeys.delete(this.matchKeys.keys().next().value);
+   this.matchKeys.set(key,true);
+  }
   this.stats.matches++;if(kind==='file')this.stats.filesFound++;
   const obj={id:this.stats.matches,url:c.url,host:host(c.url),source:c.source,pattern:term,matched,before,after,context:before+matched+after,area:kind==='file'?'File URL':'Source',kind,status,foundAt:new Date().toISOString(),observedAt:c.observedAt};
+  if(this.matches.length>=50000&&this.cfg.perpetual)this.matches.splice(0,1000);
   if(this.matches.length<50000)this.matches.push(obj);
   if(!this.urls.has(c.url)){this.urls.set(c.url,{url:c.url,source:c.source,count:0,lastMatch:obj.foundAt});this.stats.matchedPages++}
   this.urls.get(c.url).count++;this.urls.get(c.url).lastMatch=obj.foundAt;
@@ -250,7 +262,7 @@ class BrowserEngine {
    const hay=this.cfg.searchMode==='visible'&&isHTML?visible(body):body;let count=0;
    for(const p of this.patterns){p.re.lastIndex=0;let m;
     while((m=p.re.exec(hay))&&count++<200){
-     const a=m.index,b=a+m[0].length;this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',r.status);
+     const a=m.index,b=a+m[0].length;this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',r.status,a);
      if(!m[0])p.re.lastIndex++;
     }
    }
@@ -364,7 +376,7 @@ class BrowserEngine {
     for(const p of this.patterns){p.re.lastIndex=0;let m;
      while((m=p.re.exec(hay))&&found++<200){
       const a=m.index,b=a+m[0].length;
-      this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',200);
+      this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',200,a);
       if(!m[0])p.re.lastIndex++;
      }
     }
@@ -376,6 +388,9 @@ class BrowserEngine {
   if(this.running)throw Error('A scan is already running');
   this.reset();
   this.cfg={searchMode:'source',seeds:'',patterns:'',subdomainGuess:true,depth:0,concurrency:6,maxPages:1000,maxPagesPerHost:80,perHostConcurrency:2,timeoutSeconds:12,respectRobots:true,status2xxOnly:true,providers:[],...config};
+  if(this.cfg.rescanMinutes===undefined||this.cfg.rescanMinutes===null||this.cfg.rescanMinutes===0)this.cfg.rescanMinutes=5;
+  if(!Number.isInteger(Number(this.cfg.rescanMinutes))||Number(this.cfg.rescanMinutes)<1||Number(this.cfg.rescanMinutes)>1440)throw Error('Rescan interval must be between 1 and 1440 minutes');
+  this.cfg.rescanMinutes=Number(this.cfg.rescanMinutes);
   this.cfg.maxPages=Math.max(1,Math.min(100000,Number(this.cfg.maxPages)||1000));
   this.cfg.maxPagesPerHost=Math.max(1,Math.min(10000,Number(this.cfg.maxPagesPerHost)||80));
   this.cfg.perHostConcurrency=Math.max(1,Math.min(10,Number(this.cfg.perHostConcurrency)||2));
@@ -397,31 +412,59 @@ class BrowserEngine {
   if(this.cfg.searchMode!=='files'&&!lines(this.cfg.patterns).length&&!this.cfg.enumerateSubdomains&&!this.cfg.discoverDNSRecords&&!this.cfg.reverseDNSPages)throw Error('Enter search phrase or enable DNS discovery');
   this.patterns=this.cfg.searchMode==='files'?[]:lines(this.cfg.patterns).map(text=>({text,re:pattern(text,!!this.cfg.regex,!!this.cfg.caseSensitive)}));
   if(!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length&&!localFiles.length)throw Error('Enter targets, local files or enable discovery');
+  if(this.cfg.perpetual&&!lines(this.cfg.seeds).length&&!(this.cfg.providers||[]).length)throw Error('Perpetual discovery needs live targets or discovery sources');
   this.stats.status='running';this.stats.startedAt=new Date().toISOString();this.running=true;this.signal=new AbortController();
   this.log('Browser crawl started (direct requests need CORS or optional extension).');
   try{
-   if(this.cfg.dnsOnly){
-    await this.discoverDNS();
-   }else{
-   await this.scanLocal(localFiles);
-   for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
-   await this.discoverDNS();
-   if(this.cfg.enumerateSubdomains){
-    if(!subdomainTools)throw Error('Subdomain discovery module is missing');
-    await subdomainTools.discover({config:this.cfg,fetchResource:url=>this.fetch(url),
-      report:row=>this.addSubdomain(row),log:msg=>this.log(msg),signal:this.signal.signal});
-   }
-   await this.reverseFromSubdomains();
-   await this.discover();
-   await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
+   while(!this.cancelled){
+    this.stats.cycles++;this.stats.nextRunAt='';
+    if(!this.paused)this.stats.status='discovering';
+    this.queue.length=0;this.seen.clear();this.hostCounts.clear();this.robots.clear();
+    this.hostActive.clear();this.hostStarted.clear();this.reverseSeen.clear();this.reverseLookupHosts.clear();this.processed=0;
+    this.log('Discovery round '+this.stats.cycles+': fetching current URLs and feeds');
+    if(this.cfg.dnsOnly){
+     await this.discoverDNS();
+    }else{
+     await this.scanLocal(localFiles);
+     for(const seed of lines(this.cfg.seeds))this.enqueue(seed);
+     await this.discoverDNS();
+     if(this.cfg.enumerateSubdomains){
+      if(!subdomainTools)throw Error('Subdomain discovery module is missing');
+      await subdomainTools.discover({config:this.cfg,fetchResource:url=>this.fetch(url),
+       report:row=>this.addSubdomain(row),log:msg=>this.log(msg),signal:this.signal.signal});
+     }
+     await this.reverseFromSubdomains();
+     await this.discover();
+     if(this.cfg.perpetual)for(const known of [...this.knownURLs.values()])
+      this.enqueue(known.url,'revisit',known.depth,known.asset);
+     await Promise.all(Array.from({length:Math.max(1,Math.min(16,Number(this.cfg.concurrency)||6))},()=>this.worker()));
+    }
+    if(!this.cfg.perpetual||this.cancelled)break;
+    const interval=Number(this.cycleDelayMs)>0?this.cycleDelayMs:this.cfg.rescanMinutes*60000;
+    this.stats.nextRunAt=new Date(Date.now()+interval).toISOString();
+    if(!this.paused)this.stats.status='waiting';
+    this.onUpdate(this.snapshot());
+    await this.waitForNextRound(interval);
    }
    this.stats.status=this.cancelled?'cancelled':'completed';
-  }finally{this.running=false;this.stats.finishedAt=new Date().toISOString();this.onUpdate(this.snapshot())}
+  }finally{this.running=false;this.stats.finishedAt=new Date().toISOString();this.stats.nextRunAt='';this.onUpdate(this.snapshot())}
   return this.snapshot();
  }
+ async waitForNextRound(interval){
+  const due=Date.now()+interval;
+  while(!this.cancelled){
+   if(!this.paused&&Date.now()>=due)return;
+   await new Promise(resolve=>{
+    const delay=this.paused?100:Math.min(250,Math.max(5,due-Date.now()));
+    const wake=()=>{clearTimeout(timer);resolve()};
+    const timer=setTimeout(()=>{this.signal?.signal.removeEventListener('abort',wake);resolve()},delay);
+    this.signal?.signal.addEventListener('abort',wake,{once:true});
+   });
+  }
+ }
  pause(){if(this.running){this.paused=true;this.stats.status='paused';this.onUpdate(this.snapshot())}}
- resume(){if(this.running){this.paused=false;this.stats.status='running';this.onUpdate(this.snapshot())}}
- stop(){if(this.running){this.cancelled=true;this.paused=false;this.signal?.abort();this.stats.status='stopping';this.onUpdate(this.snapshot())}}
+ resume(){if(this.running){this.paused=false;this.stats.status=this.stats.nextRunAt?'waiting':'running';this.onUpdate(this.snapshot())}}
+ stop(){if(this.running){this.cancelled=true;this.paused=false;this.signal?.abort();this.stats.nextRunAt='';this.stats.status='stopping';this.onUpdate(this.snapshot())}}
 }
 const exports={BrowserEngine,visible,references,pattern};
 root.FreshSiftBrowserEngine=exports;if(typeof module!=='undefined'&&module.exports)module.exports=exports;

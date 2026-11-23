@@ -30,10 +30,18 @@ type Engine struct {
 	cancel         context.CancelFunc
 	paused         bool
 	seq            int64
+	matchKeys      map[string]struct{}
+	matchOrder     []string
+	revisit        map[string]Candidate
+	revisitOrder   []string
+	revisitCursor  int
+	cycleInterval  time.Duration // test-only override; zero uses the configured minutes
+	stateFile      string
+	pauseFrom      string
 }
 
 func NewEngine() *Engine {
-	return &Engine{stats: Stats{Status: "idle"}, matches: []Match{}, urls: map[string]FoundURL{}, subdomains: map[string]Subdomain{}, dnsRecords: map[string]DNSRecord{}, reverseHosts: map[string]ReverseHost{}, reverseSeen: map[string]bool{}, logs: []string{}}
+	return &Engine{stats: Stats{Status: "idle"}, matches: []Match{}, urls: map[string]FoundURL{}, subdomains: map[string]Subdomain{}, dnsRecords: map[string]DNSRecord{}, reverseHosts: map[string]ReverseHost{}, reverseSeen: map[string]bool{}, logs: []string{}, matchKeys: map[string]struct{}{}, revisit: map[string]Candidate{}}
 }
 func (e *Engine) Start(c Config) error {
 	if err := c.Normalize(); err != nil {
@@ -48,9 +56,13 @@ func (e *Engine) Start(c Config) error {
 		return err
 	}
 	e.mu.Lock()
-	if e.stats.Status == "running" || e.stats.Status == "discovering" || e.stats.Status == "paused" || e.stats.Status == "stopping" {
+	if e.stats.Status == "running" || e.stats.Status == "discovering" || e.stats.Status == "paused" || e.stats.Status == "stopping" || e.stats.Status == "waiting" {
 		e.mu.Unlock()
 		return errors.New("a scan is already active")
+	}
+	if err := e.persistConfig(c); err != nil {
+		e.mu.Unlock()
+		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	e.stats = Stats{Status: "discovering", StartedAt: time.Now()}
@@ -63,6 +75,12 @@ func (e *Engine) Start(c Config) error {
 	e.reverseQueries = 0
 	e.logs = []string{}
 	e.seq = 0
+	e.matchKeys = map[string]struct{}{}
+	e.matchOrder = nil
+	e.revisit = map[string]Candidate{}
+	e.revisitOrder = nil
+	e.revisitCursor = 0
+	e.pauseFrom = ""
 	e.cfg = c
 	e.cancel = cancel
 	e.paused = false
@@ -79,14 +97,18 @@ func (e *Engine) Stop() error {
 	e.stats.Status = "stopping"
 	e.paused = false
 	e.cancel()
+	if err := e.persistConfig(Config{}); err != nil {
+		return fmt.Errorf("scan stopped but restart state could not be cleared: %w", err)
+	}
 	return nil
 }
 func (e *Engine) Pause() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.stats.Status != "running" {
-		return errors.New("scan is not running")
+	if e.stats.Status != "running" && e.stats.Status != "waiting" {
+		return errors.New("scan is not running or waiting")
 	}
+	e.pauseFrom = e.stats.Status
 	e.paused = true
 	e.stats.Status = "paused"
 	return nil
@@ -98,7 +120,11 @@ func (e *Engine) Resume() error {
 		return errors.New("scan is not paused")
 	}
 	e.paused = false
-	e.stats.Status = "running"
+	e.stats.Status = e.pauseFrom
+	if e.stats.Status == "" {
+		e.stats.Status = "running"
+	}
+	e.pauseFrom = ""
 	return nil
 }
 func (e *Engine) awaitResume(ctx context.Context) bool {
@@ -384,8 +410,46 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 		e.paused = false
 		e.stats.ActiveWorkers = 0
 		e.stats.Queued = 0
+		e.stats.NextRunAt = time.Time{}
 		e.mu.Unlock()
 	}()
+	for {
+		if !e.awaitResume(ctx) {
+			return
+		}
+		e.mu.Lock()
+		e.stats.Cycles++
+		cycle := e.stats.Cycles
+		e.stats.NextRunAt = time.Time{}
+		e.stats.Status = "discovering"
+		if c.Perpetual {
+			e.reverseSeen = map[string]bool{}
+			e.reverseQueries = 0
+		}
+		e.mu.Unlock()
+		e.log(fmt.Sprintf("Discovery round %d: querying fresh sources", cycle))
+		e.runRound(ctx, c, seeds, ms)
+		if ctx.Err() != nil || !c.Perpetual {
+			return
+		}
+		interval := time.Duration(c.RescanMinutes) * time.Minute
+		if e.cycleInterval > 0 {
+			interval = e.cycleInterval
+		}
+		next := time.Now().Add(interval)
+		e.mu.Lock()
+		if !e.paused {
+			e.stats.Status = "waiting"
+		}
+		e.stats.NextRunAt = next
+		e.mu.Unlock()
+		if !e.waitForRound(ctx, next) {
+			return
+		}
+	}
+}
+
+func (e *Engine) runRound(ctx context.Context, c Config, seeds []Candidate, ms []matcher) {
 	client := newHTTPClient(time.Duration(c.TimeoutSeconds)*time.Second, c.AllowPrivate)
 	discoveryClient := newHTTPClient(15*time.Second, false)
 	sources := append([]Candidate{}, seeds...)
@@ -471,10 +535,16 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 	if ctx.Err() != nil {
 		return
 	}
+	if c.Perpetual {
+		sources = append(sources, e.revisitCandidates(c.MaxPages)...)
+	}
 	q := newQueue(c.MaxPages, c.MaxPagesPerHost)
 	for _, candidate := range sources {
 		candidate.BasePathSegments = pathSegments(candidate.URL)
 		if candidateAllowed(c, candidate.URL) && q.add(candidate) {
+			if c.Perpetual {
+				e.rememberCandidate(candidate)
+			}
 			e.mu.Lock()
 			e.stats.Discovered++
 			e.mu.Unlock()
@@ -570,19 +640,8 @@ func (e *Engine) appendMatches(item Candidate, res fetchResult, host string, hit
 	foundAt := time.Now()
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if _, exists := e.urls[res.URL]; !exists {
-		e.stats.MatchedPages++
-	}
-	previous := e.urls[res.URL]
-	previous.URL = res.URL
-	previous.Source = item.Source
-	previous.IP = item.IP
-	previous.Count += len(hits)
-	previous.LastMatch = foundAt
-	e.urls[res.URL] = previous
-	for _, m := range hits {
-		e.seq++
-		m.ID = e.seq
+	added := 0
+	for index, m := range hits {
 		m.URL = res.URL
 		m.Host = host
 		m.IP = item.IP
@@ -592,17 +651,51 @@ func (e *Engine) appendMatches(item Candidate, res fetchResult, host string, hit
 		m.FoundAt = foundAt
 		m.ObservedAt = item.ObservedAt
 		m.Status = res.Status
+		if e.cfg.Perpetual {
+			key := fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%d", m.URL, m.Kind, m.Pattern, m.Matched, m.Before, m.After, index)
+			if _, exists := e.matchKeys[key]; exists {
+				continue
+			}
+			if len(e.matchOrder) >= 100000 {
+				delete(e.matchKeys, e.matchOrder[0])
+				e.matchOrder = e.matchOrder[1:]
+			}
+			e.matchKeys[key] = struct{}{}
+			e.matchOrder = append(e.matchOrder, key)
+		}
+		e.seq++
+		m.ID = e.seq
+		added++
 		e.stats.Matches++
 		if kind == "file" {
 			e.stats.FilesFound++
+		}
+		if len(e.matches) >= MaxStoredMatches && e.cfg.Perpetual {
+			// Evict a batch rather than retaining only the oldest 50,000 matches.
+			e.matches = e.matches[1000:]
 		}
 		if len(e.matches) < MaxStoredMatches {
 			e.matches = append(e.matches, m)
 		}
 	}
+	if added == 0 {
+		return
+	}
+	if _, exists := e.urls[res.URL]; !exists {
+		e.stats.MatchedPages++
+	}
+	previous := e.urls[res.URL]
+	previous.URL = res.URL
+	previous.Source = item.Source
+	previous.IP = item.IP
+	previous.Count += added
+	previous.LastMatch = foundAt
+	e.urls[res.URL] = previous
 }
-
 func (e *Engine) process(ctx context.Context, c Config, ms []matcher, client *http.Client, robots *robotsCache, gates *hostGates, q *taskQueue, item Candidate) {
+	if c.Perpetual {
+		e.rememberCandidate(item)
+	}
 	u, err := url.Parse(item.URL)
 	if err != nil {
 		e.err(err)

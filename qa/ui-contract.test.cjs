@@ -9,9 +9,9 @@ const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
 assert.equal(new Set(ids).size,ids.length,'duplicate HTML IDs');
 const nodes={};
 for(const id of ids){nodes[id]={id,type:id.startsWith('src-')||id.startsWith('engine-')?'checkbox':'text',value:'',checked:false,hidden:false,textContent:'',disabled:false};}
-for(const id of ['regex','caseSensitive','respectRobots','enableFTP','allowPrivate','followExternal','status2xxOnly','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT','subdomainGuess','discoverDNSRecords','dnsOnly','reverseDNSPages','reverseDNSSubdomains']){nodes[id].type='checkbox'}
+for(const id of ['regex','caseSensitive','respectRobots','enableFTP','allowPrivate','followExternal','status2xxOnly','enumerateSubdomains','subdomainUseBuiltIn','subdomainUseCT','subdomainGuess','discoverDNSRecords','dnsOnly','reverseDNSPages','reverseDNSSubdomains','perpetual']){nodes[id].type='checkbox'}
 for(const id of ['respectRobots','enableFTP','status2xxOnly'])nodes[id].checked=true;
-nodes['engine-google'].checked=true;nodes['engine-bing'].checked=true;nodes.searxngURL.value='https://search.example.org';nodes.subdomainGuess.checked=true;nodes.subdomainUseBuiltIn.checked=true;nodes.reverseDNSPageDepth.value='1';nodes.reverseDNSSubdomainDepth.value='1';nodes.subdomainUseCT.checked=true;nodes.subdomainLimit.value='250';nodes.searchMode.value='source';nodes.recentHours.value='24';nodes.depth.value='0';nodes.maxPathSegments.value='5';nodes.maxPages.value='1000';nodes.concurrency.value='24';nodes.fileTypes.value='.jpg';nodes.seeds.value='http://127.0.0.1:9000/';
+nodes['engine-google'].checked=true;nodes['engine-bing'].checked=true;nodes.searxngURL.value='https://search.example.org';nodes.subdomainGuess.checked=true;nodes.subdomainUseBuiltIn.checked=true;nodes.reverseDNSPageDepth.value='1';nodes.reverseDNSSubdomainDepth.value='1';nodes.subdomainUseCT.checked=true;nodes.subdomainLimit.value='250';nodes.searchMode.value='source';nodes.rescanMinutes.value='5';nodes.perpetual.checked=true;nodes.recentHours.value='24';nodes.depth.value='0';nodes.maxPathSegments.value='5';nodes.maxPages.value='1000';nodes.concurrency.value='24';nodes.fileTypes.value='.jpg';nodes.seeds.value='http://127.0.0.1:9000/';
 const ctx=vm.createContext({
  console,URL,URLSearchParams,Intl,Date,Number,String,Object,Array,Set,Map,Error,Promise,
  document:{getElementById:(id)=>{if(!nodes[id])throw new Error('Unknown DOM ID '+id);return nodes[id]},addEventListener(){}},
@@ -21,7 +21,7 @@ const ctx=vm.createContext({
 vm.runInContext(js,ctx,{filename:'web/app.js'});
 for(const id of vm.runInContext('configIDs',ctx))assert(ids.includes(id),'missing config element: '+id);
 let cfg=vm.runInContext('makeConfig()',ctx);
-assert.equal(cfg.searchMode,'source');assert.equal(cfg.searxngURL,'https://search.example.org');assert.deepEqual([...cfg.searchEngines],['google','bing']);assert.equal(cfg.onlyHTML,false);assert.equal(cfg.subdomainUseBuiltIn,true);assert.equal(cfg.subdomainGuess,true);assert.equal(cfg.reverseDNSPageDepth,1);assert.equal(cfg.reverseDNSSubdomainDepth,1);assert.equal(cfg.subdomainUseCT,true);assert.equal(cfg.subdomainLimit,250);assert.equal(cfg.respectRobots,true);assert.equal(cfg.enableFTP,true);
+assert.equal(cfg.perpetual,true);assert.equal(cfg.rescanMinutes,5);assert.equal(cfg.searchMode,'source');assert.equal(cfg.searxngURL,'https://search.example.org');assert.deepEqual([...cfg.searchEngines],['google','bing']);assert.equal(cfg.onlyHTML,false);assert.equal(cfg.subdomainUseBuiltIn,true);assert.equal(cfg.subdomainGuess,true);assert.equal(cfg.reverseDNSPageDepth,1);assert.equal(cfg.reverseDNSSubdomainDepth,1);assert.equal(cfg.subdomainUseCT,true);assert.equal(cfg.subdomainLimit,250);assert.equal(cfg.respectRobots,true);assert.equal(cfg.enableFTP,true);
 vm.runInContext('syncSearchMode()',ctx);
 assert.equal(nodes.stringSettings.hidden,false);assert.equal(nodes.fileTypeSettings.hidden,true);
 nodes.searchMode.value='files';vm.runInContext('syncSearchMode()',ctx);

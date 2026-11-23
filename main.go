@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ func main() {
 	port := flag.Int("port", 8787, "listening port")
 	listenHost := flag.String("listen", "127.0.0.1", "listening address (default: loopback)")
 	noBrowser := flag.Bool("no-browser", false, "do not open browser automatically")
+	stateFile := flag.String("state-file", "", "perpetual scan restart checkpoint (default: user config directory)")
 	flag.Parse()
 	if *port < 1 || *port > 65535 {
 		log.Fatal("port must be between 1 and 65535")
@@ -75,7 +77,21 @@ func main() {
 	if !*noBrowser {
 		go func() { time.Sleep(400 * time.Millisecond); openBrowser(endpoint) }()
 	}
-	app := &http.Server{Handler: newMuxWithSettings(freshsift.NewEngine(), settings), ReadHeaderTimeout: 6 * time.Second, IdleTimeout: 60 * time.Second}
+	if *stateFile == "" {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			log.Fatal("cannot determine user config directory: ", err)
+		}
+		*stateFile = filepath.Join(configDir, "FreshSift", "perpetual.json")
+	}
+	engine := freshsift.NewEngine()
+	engine.SetStateFile(*stateFile)
+	if resumed, err := engine.ResumeSavedScan(); err != nil {
+		log.Printf("Perpetual scan restore failed: %v", err)
+	} else if resumed {
+		log.Printf("Resumed saved perpetual scan")
+	}
+	app := &http.Server{Handler: newMuxWithSettings(engine, settings), ReadHeaderTimeout: 6 * time.Second, IdleTimeout: 60 * time.Second}
 	log.Fatal(app.Serve(listener))
 }
 func openBrowser(endpoint string) {
