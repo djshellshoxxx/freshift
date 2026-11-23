@@ -59,6 +59,8 @@ type Config struct {
 	URLExcludes              string   `json:"urlExcludes"`
 	OnlyHTML                 bool     `json:"onlyHTML"`
 	Status2xxOnly            bool     `json:"status2xxOnly"`
+	Perpetual                bool     `json:"perpetual"`
+	RescanMinutes            int      `json:"rescanMinutes"`
 }
 
 func DefaultConfig() Config {
@@ -68,11 +70,17 @@ func DefaultConfig() Config {
 		PerHostConcurrency: 2, TimeoutSeconds: 12, DiscoveryLimit: 250, SubdomainLimit: 250, ReverseDNSPageDepth: 1, ReverseDNSSubdomainDepth: 1,
 		RespectRobots: true, OnlyHTML: false, Status2xxOnly: true,
 		SearchMode: "source", EnableFTP: true,
-		Providers: []string{"urlscan", "hn"},
+		Providers: []string{"urlscan", "hn"}, RescanMinutes: 5,
 	}
 }
 
 func (c *Config) Normalize() error {
+	if c.RescanMinutes == 0 {
+		c.RescanMinutes = 5
+	}
+	if c.RescanMinutes < 1 || c.RescanMinutes > 1440 {
+		return errors.New("rescan interval must be between 1 and 1440 minutes")
+	}
 	if c.SearchMode == "" {
 		c.SearchMode = "source"
 	}
@@ -325,6 +333,8 @@ type FoundURL struct {
 
 type Stats struct {
 	Status         string    `json:"status"`
+	Cycles         int       `json:"cycles"`
+	NextRunAt      time.Time `json:"nextRunAt,omitempty"`
 	StartedAt      time.Time `json:"startedAt,omitempty"`
 	FinishedAt     time.Time `json:"finishedAt,omitempty"`
 	ElapsedSeconds float64   `json:"elapsedSeconds"`
