@@ -45,15 +45,15 @@ jobs:
           files: |
             dist/FreshSift-windows-amd64.exe
             dist/SHA256SUMS.txt
-      - name: Publish v0.4.0 Windows DNS/PTR prerelease on first main push
+      - name: Publish v0.5.0 perpetual discovery Windows prerelease on first main push
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v0.4.0 >/dev/null 2>&1; then
-            echo "v0.4.0 release already exists; preserve its immutable tag and binaries"
+          if gh release view v0.5.0 >/dev/null 2>&1; then
+            echo "v0.5.0 release already exists; preserve its immutable tag and binaries"
           else
-            gh release create v0.4.0 dist/FreshSift-windows-amd64.exe dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "FreshSift v0.4.0" --notes "DNS record search and DNS-only mode; optional subdomain guessing and CT; forward-confirmed page and subdomain PTR lookups with independent crawl depth; CSV/JSON DNS and PTR inventories; Go and GitHub Pages parity." --prerelease
+            gh release create v0.5.0 dist/FreshSift-windows-amd64.exe dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "FreshSift v0.5.0" --notes "Perpetual opt-in continuous discovery and URL rescanning; 1-1440 minute refresh intervals; bounded revisit inventory; repeated-match deduplication; restart checkpoint persistence in Go; matching browser-only Pages UI and source-discovery feed refresh. Preserves all v0.4 DNS and PTR features." --prerelease
           fi
       - name: Upload workflow artifact for manual runs
         if: github.event_name == 'workflow_dispatch'
