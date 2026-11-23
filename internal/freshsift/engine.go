@@ -422,6 +422,10 @@ func (e *Engine) run(ctx context.Context, c Config, seeds []Candidate, ms []matc
 		cycle := e.stats.Cycles
 		e.stats.NextRunAt = time.Time{}
 		e.stats.Status = "discovering"
+		if c.Perpetual {
+			e.reverseSeen = map[string]bool{}
+			e.reverseQueries = 0
+		}
 		e.mu.Unlock()
 		e.log(fmt.Sprintf("Discovery round %d: querying fresh sources", cycle))
 		e.runRound(ctx, c, seeds, ms)
@@ -637,7 +641,7 @@ func (e *Engine) appendMatches(item Candidate, res fetchResult, host string, hit
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	added := 0
-	for _, m := range hits {
+	for index, m := range hits {
 		m.URL = res.URL
 		m.Host = host
 		m.IP = item.IP
@@ -648,7 +652,7 @@ func (e *Engine) appendMatches(item Candidate, res fetchResult, host string, hit
 		m.ObservedAt = item.ObservedAt
 		m.Status = res.Status
 		if e.cfg.Perpetual {
-			key := m.URL + "\x00" + m.Kind + "\x00" + m.Pattern + "\x00" + m.Matched + "\x00" + m.Before + "\x00" + m.After
+			key := fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%d", m.URL, m.Kind, m.Pattern, m.Matched, m.Before, m.After, index)
 			if _, exists := e.matchKeys[key]; exists {
 				continue
 			}

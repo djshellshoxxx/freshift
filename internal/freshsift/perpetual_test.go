@@ -80,6 +80,28 @@ func TestPerpetualRescansAndDeduplicates(t *testing.T) {
 	waitForPerpetual(t, func() bool { return engine.Snapshot().Stats.Status == "cancelled" })
 }
 
+func TestPerpetualPreservesMultipleOccurrencesAtSameURL(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Seeds, cfg.Patterns = "https://example.org", "needle"
+	cfg.Perpetual = true
+	engine := NewEngine()
+	engine.cfg = cfg
+	res := fetchResult{URL: "https://example.org/", Status: 200}
+	c := Candidate{URL: res.URL, Source: "manual"}
+	hits := []Match{
+		{Pattern: "needle", Matched: "needle", Before: "", After: ""},
+		{Pattern: "needle", Matched: "needle", Before: "", After: ""},
+	}
+	engine.appendMatches(c, res, "example.org", hits, "Source", "text")
+	if got := engine.Snapshot().Stats.Matches; got != 2 {
+		t.Fatalf("distinct occurrences collapsed: got %d, want 2", got)
+	}
+	engine.appendMatches(c, res, "example.org", hits, "Source", "text")
+	if got := engine.Snapshot().Stats.Matches; got != 2 {
+		t.Fatalf("identical second round duplicated matches: got %d, want 2", got)
+	}
+}
+
 func TestPerpetualStateSavedAndRemovedOnStop(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "nested", "perpetual.json")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("needle")) }))

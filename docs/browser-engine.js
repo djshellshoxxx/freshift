@@ -105,7 +105,7 @@ class BrowserEngine {
    p.re.lastIndex=0;let m,i=0;
    while((m=p.re.exec(row.value))&&i++<30){
     const a=m.index,b=a+m[0].length;
-    this.addMatch(c,p.text,m[0],row.type+' '+row.value.slice(Math.max(0,a-70),a),row.value.slice(b,b+70),'dns',200);
+    this.addMatch(c,p.text,m[0],row.type+' '+row.value.slice(Math.max(0,a-70),a),row.value.slice(b,b+70),'dns',200,a);
     if(!m[0])p.re.lastIndex++;
    }
   }
@@ -222,9 +222,9 @@ class BrowserEngine {
   for(const r of rules){if(u.pathname.startsWith(r.prefix)&&r.prefix.length>=length){length=r.prefix.length;allow=r.allow}}
   return allow;
  }
- addMatch(c,term,matched,before,after,kind,status){
+ addMatch(c,term,matched,before,after,kind,status,offset=0){
   if(this.cfg.perpetual){
-   const key=[c.url,term,matched,before,after,kind].join('\u0000');
+   const key=[c.url,term,matched,before,after,kind,offset].join('\u0000');
    if(this.matchKeys.has(key))return;
    if(this.matchKeys.size>=100000)this.matchKeys.delete(this.matchKeys.keys().next().value);
    this.matchKeys.set(key,true);
@@ -262,7 +262,7 @@ class BrowserEngine {
    const hay=this.cfg.searchMode==='visible'&&isHTML?visible(body):body;let count=0;
    for(const p of this.patterns){p.re.lastIndex=0;let m;
     while((m=p.re.exec(hay))&&count++<200){
-     const a=m.index,b=a+m[0].length;this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',r.status);
+     const a=m.index,b=a+m[0].length;this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',r.status,a);
      if(!m[0])p.re.lastIndex++;
     }
    }
@@ -376,7 +376,7 @@ class BrowserEngine {
     for(const p of this.patterns){p.re.lastIndex=0;let m;
      while((m=p.re.exec(hay))&&found++<200){
       const a=m.index,b=a+m[0].length;
-      this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',200);
+      this.addMatch(c,p.text,m[0],hay.slice(Math.max(0,a-100),a),hay.slice(b,b+100),'text',200,a);
       if(!m[0])p.re.lastIndex++;
      }
     }
