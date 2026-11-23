@@ -30,6 +30,7 @@ jobs:
           node qa/ui-contract.test.cjs
           node qa/pages-parity.test.cjs
           node qa/browser-engine.test.cjs
+          node qa/perpetual-browser.test.cjs
           node qa/search-engines.test.cjs
           node qa/dns-intel.test.cjs
           node qa/dns-intel-flow.test.cjs
