@@ -26,6 +26,7 @@ jobs:
           node --check web/browser-engine.js
           node --check web/starter-lists.js
           node qa/starter-lists.test.cjs
+          node qa/starter-ui-runtime.test.cjs
           node --check web/dns-intel.js
           node --check extension/content-script.js
           node --check extension/background.js
