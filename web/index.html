@@ -8,6 +8,7 @@
 <title>FreshSift · Web discovery, files &amp; source search</title>
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="stylesheet" href="./style.css">
+<script src="./starter-lists.js" defer></script>
 <script src="./subdomains.js" defer></script>
 <script src="./dns-intel.js" defer></script>
 <script src="./browser-engine.js" defer></script>
@@ -41,6 +42,22 @@
         <div class="section-head"><label for="seeds" class="field-title">Starting websites <span class="soft">&amp; IPs</span></label><span class="hint-link" id="targetCount">0 TARGETS</span></div>
         <div class="field-wrap"><textarea id="seeds" rows="5" spellcheck="false" placeholder="https://example.org\n192.0.2.40  (use public, reachable IPs)\nexample.net/about"></textarea><span class="field-corner">URL / IP</span></div>
         <div class="file-row" id="dropzone"><input type="file" id="fileInput" accept=".txt,.csv,.list,.tsv" hidden><button class="text-action" id="chooseFile" type="button"><span class="action-icon">＋</span> Import TXT / CSV</button><span class="file-hint" id="fileHint">or drag a file here</span><button type="button" id="clearSeeds" class="text-action muted-action">Clear</button></div>
+        <details class="advanced" id="starterListPanel" open><summary>Curated starter websites <span class="summary-arrow">⌄</span></summary>
+          <div class="advanced-inner">
+            <p class="note">Selected categories are combined with your manual URLs when you press GO. They are selectable in both Go and Pages. Newly installed clients start with the recommended list; existing settings are not silently changed.</p>
+            <input id="starterSearch" class="starter-search" type="search" placeholder="Filter categories, sites or domains…" aria-label="Filter starter website categories">
+            <div id="starterCatalog" class="starter-catalog" aria-label="Selectable starter website categories"></div>
+            <div class="tools-row starter-tools">
+              <button id="starterReset" type="button" class="btn btn-ghost btn-small">Recommended</button>
+              <button id="starterSelectAll" type="button" class="btn btn-ghost btn-small">Select all</button>
+              <button id="starterClearAll" type="button" class="btn btn-ghost btn-small">Select none</button>
+              <button id="starterExport" type="button" class="btn btn-outline btn-small">Export URLs TXT</button>
+            </div>
+            <div id="starterSummary" class="note" role="status"></div>
+            <details class="starter-preview-details"><summary>Preview all effective starting URLs</summary><pre id="starterPreview" class="starter-preview"></pre></details>
+            <p class="note">Search portals, archival indexes and paste homepages are just starting pages. Selecting them does not query their entire database or find unlisted content. Browser-only Pages is constrained by CORS; use the optional extension or a connected Go engine for broader access.</p>
+          </div>
+        </details>
         <div class="file-row" id="browserLocalGroup" hidden><label for="localFiles" class="text-action">Search local files</label><input id="localFiles" type="file" multiple><span id="localCount" class="file-hint">No files selected</span></div>
       </section>
 
