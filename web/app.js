@@ -34,21 +34,35 @@ const number=id=>Number(value(id));
 const fmt=n=>new Intl.NumberFormat(undefined,{maximumFractionDigits:0}).format(n||0);
 const escapeDomain=s=>{try{return new URL(s).hostname}catch{return s}};
 const starters=window.FreshSiftStarters||null;
+const starterSiteInputs=new Map();
 function selectedStarterIDs(){
  if(!starters)return [];
  return starters.groups.filter(group=>document.getElementById('starter-'+group.id)?.checked).map(group=>group.id);
 }
-function setStarterSelection(ids){
+function selectedStarterExclusions(){
+ const out={};
+ for(const [id,inputs] of starterSiteInputs){
+  const excluded=inputs.filter(item=>!item.input.checked).map(item=>item.url);
+  if(excluded.length)out[id]=excluded;
+ }
+ return out;
+}
+function setStarterSelection(ids,excludedByGroup={}){
  if(!starters)return;
  const selected=new Set(ids||[]);
  for(const group of starters.groups){
   const input=document.getElementById('starter-'+group.id);
   if(input)input.checked=selected.has(group.id);
+  const excluded=new Set(Array.isArray(excludedByGroup?.[group.id])?excludedByGroup[group.id]:[]);
+  for(const item of starterSiteInputs.get(group.id)||[]){
+   item.input.checked=!excluded.has(item.url);
+   item.input.disabled=!selected.has(group.id);
+  }
  }
  countTargets();
 }
 function effectiveStarters(){
- if(starters)return starters.combine(value('seeds'),selectedStarterIDs());
+ if(starters)return starters.combine(value('seeds'),selectedStarterIDs(),selectedStarterExclusions());
  const urls=[...new Set(value('seeds').split(/[\r\n,]+/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#')))];
  return {urls,manualCount:urls.length,groupURLCount:0,groupCount:0,duplicateCount:0};
 }
@@ -60,16 +74,35 @@ function setupStarterCatalog(){
   const label=document.createElement('label');label.className='starter-choice';
   const input=document.createElement('input');input.type='checkbox';input.id='starter-'+group.id;
   input.checked=starters.defaultIds.includes(group.id);
-  input.addEventListener('change',()=>{countTargets();storeForm()});
+  input.addEventListener('change',()=>{
+   for(const item of starterSiteInputs.get(group.id)||[])item.input.disabled=!input.checked;
+   countTargets();storeForm();
+  });
   const description=document.createElement('span');
   const name=document.createElement('strong');
   name.textContent=group.label+' · '+group.urls.length+' URLs';
   const help=document.createElement('small');help.textContent=group.description;
   description.append(name,help);label.append(input,description);
   const detail=document.createElement('details');
-  const summary=document.createElement('summary');summary.textContent='Show included websites';
-  const urls=document.createElement('pre');urls.textContent=group.urls.join('\n');
-  detail.append(summary,urls);card.append(label,detail);target.append(card);
+  const summary=document.createElement('summary');summary.textContent='Choose individual websites';
+  const urlOptions=document.createElement('div');urlOptions.className='starter-url-options';
+  const siteInputs=[];
+  for(const [index,url] of group.urls.entries()){
+   const line=document.createElement('div');line.className='starter-url-line';
+   const siteLabel=document.createElement('label');
+   const siteCheckbox=document.createElement('input');siteCheckbox.type='checkbox';
+   siteCheckbox.id='starter-url-'+group.id+'-'+index;
+   siteCheckbox.checked=true;siteCheckbox.disabled=!input.checked;
+   siteCheckbox.addEventListener('change',()=>{countTargets();storeForm()});
+   const text=document.createElement('span');text.textContent=url;
+   siteLabel.append(siteCheckbox,text);
+   const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open';
+   link.title='Open '+url+' in a new tab';
+   line.append(siteLabel,link);urlOptions.append(line);
+   siteInputs.push({input:siteCheckbox,url});
+  }
+  starterSiteInputs.set(group.id,siteInputs);
+  detail.append(summary,urlOptions);card.append(label,detail);target.append(card);
   card.dataset.query=[group.label,group.description,...group.urls].join(' ').toLowerCase();
  }
  $('starterSearch').addEventListener('input',()=>{
@@ -96,8 +129,8 @@ function setupStarterCatalog(){
 
 function makeConfig(){return{
  seeds:effectiveStarters().urls.join('\n'),patterns:value('patterns'),regex:checked('regex'),caseSensitive:checked('caseSensitive'),searchMode:value('searchMode'),fileTypes:value('fileTypes'),recentHours:number('recentHours'),depth:number('depth'),maxPathSegments:number('maxPathSegments'),maxExtraDirs:number('maxExtraDirs'),siteMinutes:number('siteMinutes'),budgetMode:value('budgetMode'),maxPages:number('maxPages'),maxPagesPerHost:number('maxPagesPerHost'),concurrency:number('concurrency'),perHostConcurrency:number('perHostConcurrency'),timeoutSeconds:number('timeoutSeconds'),discoveryLimit:number('discoveryLimit'),enumerateSubdomains:checked('enumerateSubdomains'),subdomainUseBuiltIn:checked('subdomainUseBuiltIn'),subdomainUseCT:checked('subdomainUseCT'),subdomainWords:value('subdomainWords'),subdomainLimit:number('subdomainLimit'),subdomainGuess:checked('subdomainGuess'),discoverDNSRecords:checked('discoverDNSRecords'),dnsOnly:checked('dnsOnly'),reverseDNSPages:checked('reverseDNSPages'),reverseDNSPageDepth:number('reverseDNSPageDepth'),reverseDNSSubdomains:checked('reverseDNSSubdomains'),reverseDNSSubdomainDepth:number('reverseDNSSubdomainDepth'),sourceQuery:value('sourceQuery'),searxngURL:value('searxngURL'),searchEngines:searchEngineOptions.filter(([id])=>checked('engine-'+id)).map(([id])=>id),followExternal:checked('followExternal'),respectRobots:checked('respectRobots'),enableFTP:checked('enableFTP'),excludeFileTypes:value('excludeFileTypes'),allowedTLDs:value('allowedTLDs'),allowPrivate:checked('allowPrivate'),allowDomains:value('allowDomains'),excludeDomains:value('excludeDomains'),urlContains:value('urlContains'),urlExcludes:value('urlExcludes'),onlyHTML:false,status2xxOnly:checked('status2xxOnly'),perpetual:checked('perpetual'),rescanMinutes:number('rescanMinutes'),providers:sources.filter(s=>checked('src-'+s))};}
-function snapshotForm(){const vals={};for(const id of configIDs){vals[id]=$(id).type==='checkbox'?checked(id):value(id)};return {...vals,starterLists:selectedStarterIDs()}}
-function loadForm(vals){if(!vals||typeof vals!=='object')return;for(const [id,val] of Object.entries(vals)){if(!configIDs.includes(id)||val===undefined||val===null)continue;const el=$(id);if(el.type==='checkbox')el.checked=Boolean(val);else el.value=String(val)};if(starters)setStarterSelection(starters.selectionForSettings(vals));countTargets()}
+function snapshotForm(){const vals={};for(const id of configIDs){vals[id]=$(id).type==='checkbox'?checked(id):value(id)};return {...vals,starterLists:selectedStarterIDs(),starterExclusions:selectedStarterExclusions()}}
+function loadForm(vals){if(!vals||typeof vals!=='object')return;for(const [id,val] of Object.entries(vals)){if(!configIDs.includes(id)||val===undefined||val===null)continue;const el=$(id);if(el.type==='checkbox')el.checked=Boolean(val);else el.value=String(val)};if(starters)setStarterSelection(starters.selectionForSettings(vals),vals.starterExclusions);countTargets()}
 function storeForm(){try{localStorage.setItem('freshsift-config-v1',JSON.stringify(snapshotForm()))}catch{}}
 function syncSearchMode(){
  const mode=value('searchMode');const files=mode==='files';$('stringSettings').hidden=files;$('fileTypeSettings').hidden=!files;

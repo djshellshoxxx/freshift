@@ -31,6 +31,10 @@ assert.equal(selected.urls.filter(u=>u==='https://news.ycombinator.com/newest').
 assert(selected.duplicateCount>=1,'report duplicate source URLs');
 assert.equal(selected.groupCount,2,'unknown group should be ignored');
 assert(selected.urls.length>15,'multiple groups must be combined');
+const tailored=catalog.combine('https://manual.example.org',['pastes'],{pastes:['https://pastebin.com/archive']});
+assert(tailored.urls.includes('https://gist.github.com/discover'),'per-site selection unexpectedly dropped other sources');
+assert(!tailored.urls.includes('https://pastebin.com/archive'),'unchecked individual website was not excluded');
+assert(tailored.urls.includes('https://manual.example.org'),'manual URLs must survive per-site exclusions');
 assert.deepEqual(catalog.selectionForSettings(null),['fresh'],'fresh installs use curated defaults');
 assert.deepEqual(catalog.selectionForSettings({seeds:'https://example.org'}),[], 'legacy saved settings must not silently inject new seeds');
 assert.deepEqual(catalog.selectionForSettings({starterLists:['pastes','unknown','pastes']}),['pastes'],'saved selection sanitized and deduplicated');

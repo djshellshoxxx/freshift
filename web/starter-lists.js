@@ -144,7 +144,7 @@
   }catch{}
   return input.toLowerCase();
  }
- function combine(manualText, selectedIds=[]){
+ function combine(manualText, selectedIds=[], excludedByGroup={}){
   const ids=[...new Set((Array.isArray(selectedIds)?selectedIds:[]).filter(x=>byId.has(x)))];
   const urls=[],seen=new Set();
   let duplicateCount=0,manualCount=0,groupURLCount=0;
@@ -157,7 +157,10 @@
    if(manual)manualCount++;else groupURLCount++;
   };
   for(const raw of String(manualText||'').split(/[\r\n,]+/))add(raw,true);
-  for(const id of ids)for(const u of byId.get(id).urls)add(u,false);
+  for(const id of ids){
+   const exclusions=new Set(Array.isArray(excludedByGroup?.[id])?excludedByGroup[id]:[]);
+   for(const u of byId.get(id).urls)if(!exclusions.has(u))add(u,false);
+  }
   return {urls,manualCount,groupURLCount,groupCount:ids.length,duplicateCount};
  }
  function filterGroups(query){
