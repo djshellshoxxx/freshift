@@ -6,6 +6,8 @@ const base=process.env.TEST_BASE_URL||'http://127.0.0.1:9157';
 async function prepare(page){
  await page.goto(base+'/docs/index.html',{waitUntil:'domcontentloaded'});
  await page.locator('#browserModeNote').waitFor({state:'visible'});
+ // Disable opt-in curated defaults for deterministic local fixture tests.
+ const clear=page.locator('#starterClearAll');if(await clear.count())await clear.click();
  for(const id of ['urlscan','hn','brave','rss','sitemap','ct']){
   const selector=page.locator('#src-'+id);if(await selector.isChecked())await selector.uncheck();
  }
@@ -28,6 +30,8 @@ async function hostedCrawlTests(browser){
   await page.goto(hosted,{waitUntil:'domcontentloaded',timeout:45000});
   await page.locator('#browserModeNote').waitFor({state:'visible',timeout:20000});
   await page.evaluate(()=>{
+   // Older deployed versions lack the catalog; newer versions must clear it.
+   document.getElementById('starterClearAll')?.click();
    for(const id of ['src-urlscan','src-hn','src-brave','src-rss','src-sitemap','src-ct','src-searxng','respectRobots','enumerateSubdomains','discoverDNSRecords','reverseDNSPages','reverseDNSSubdomains','dnsOnly']){
     const el=document.getElementById(id);
     if(el){el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}))}
