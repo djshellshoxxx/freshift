@@ -29,7 +29,7 @@ import (
 //go:embed web/*
 var assets embed.FS
 
-const Version = "0.5.0"
+const Version = "0.6.0"
 
 // remoteSettings is only needed when a static GitHub Pages dashboard controls
 // an externally hosted Go engine through a HTTPS reverse proxy.

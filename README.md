@@ -1,4 +1,4 @@
-# FreshSift v0.5.0
+# FreshSift v0.6.0
 
 **Local-first, single-executable Go crawler for finding content and file URLs in recently observed web resources.** It has a browser interface, but crawling and searches happen in Go on your own computer.
 
@@ -12,6 +12,14 @@ FreshSift supports exact strings, RE2 regex, binary/source-byte searching, and *
 
 *Illustrative filetype-search preview. The actual application uses `web/index.html`, `web/style.css` and `web/app.js`; test your screen size in the local browser.*
 
+
+## Curated starter website collections (Go + GitHub Pages)
+
+FreshSift includes **18 selectable collections** of public starting pages, with over 150 directory, recent-post and publication URLs across fast-moving aggregators, Pastebin/Rentry/GitHub Gists, web indexes and archives (urlscan/Common Crawl/Wayback), public code forges, software releases, security advisories, news, science and AI research, public data, government notices, forums, blogs, standards and download mirrors. See **Starting websites → Curated starter websites**.
+
+The **Fast-moving discovery hubs** category is selected by default only on a *fresh installation*. Previously saved scans and settings imports with no starter-list field retain their previous seed list without silently adding sites. All category checkboxes are independent and additive: select multiple categories, filter them by website name, inspect the included URLs, use **Recommended**, **Select all**, or **Select none**, and **Preview**, **Copy**, or **Export URLs TXT**. Expand any category to uncheck individual sites without disabling the entire category; these choices are also saved. The effective URL inventory combines manual and selected category URLs and removes exact/canonical duplicates. The dashboard saves category selections in its settings, presets and exports, but submits only the resolved URL list to Go so its existing API also remains compatible.
+
+Starter categories contain **webpage entry URLs**, not automatic access to each external site's entire search index or database. This includes Pastebin, Rentry, Common Crawl and Wayback. The actual import tools remain the configured discovery providers (urlscan, HN, SearXNG, sitemaps/RSS, etc.). Some providers block browser cross-origin requests, require credentials or rate-limit crawlers. A connected Go engine is useful for broader reach; use the browser extension where appropriate. Per-run page limits, robots rules, filters and network restrictions remain in effect; observed timestamps are not proof of first indexing.
 
 ## Perpetual discovery and rescanning (Go + GitHub Pages)
 
@@ -94,7 +102,7 @@ GitHub Pages cannot host Go. Its JavaScript client can now scan local files and 
 
 **Connecting Pages to your own Go backend (Unraid / Windows / Linux):**
 
-1. Build or download FreshSift v0.5.0. Choose a long random bearer token; set `FRESHSIFT_API_TOKEN` and `FRESHSIFT_ALLOWED_ORIGIN=https://djshellshoxxx.github.io` on the crawler host. Never place the token in the Pages repository or source code.
+1. Build or download FreshSift v0.6.0. Choose a long random bearer token; set `FRESHSIFT_API_TOKEN` and `FRESHSIFT_ALLOWED_ORIGIN=https://djshellshoxxx.github.io` on the crawler host. Never place the token in the Pages repository or source code.
 2. Start the Go server bound to an address reachable by your TLS reverse proxy (see example). This requires both environment variables. Do not expose the bare HTTP port directly to the internet. A VPN or other access control layer is recommended in addition to the API token.
 3. Publish the crawler behind a **valid HTTPS domain** (for example `https://crawler.your-domain.example`). The reverse proxy must forward `/api/` requests without stripping `Authorization`. Do not publish `/` if you only want the Pages UI accessible.
 4. Open GitHub Pages, select **Connect engine**, enter the HTTPS origin and the token, then connect. Only the engine origin is saved in browser local storage; the token is stored in browser session storage (not in GitHub). Clear it with **Disconnect**.

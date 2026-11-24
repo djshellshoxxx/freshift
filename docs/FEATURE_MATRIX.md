@@ -1,4 +1,4 @@
-# FreshSift v0.5.0 — feature matrix
+# FreshSift v0.6.0 — feature matrix
 
 This is the implemented feature set in the source tree, not a guarantee of external feed availability.
 
@@ -74,3 +74,7 @@ Browser-specific tests are in qa/browser-engine.test.cjs and qa/extension-contra
 ### Continuous discovery mode
 
 Both interfaces expose `perpetual` and `rescanMinutes` and cycle through enabled discovery feeds and a bounded URL revisit queue until stopped. The Go process continues when the dashboard is closed and can restore its opt-in persisted configuration at process startup; standalone Pages only runs during an open browser tab (or controls a connected always-on Go process). Match deduplication and the existing per-cycle scan budgets are applied. Automatic discovery of every indexed page cannot be guaranteed by public discovery sources.
+
+### Curated starting websites
+
+Both Go and Pages dashboards use the same `starter-lists.js` catalog: 18 optional category checkboxes (including pastes and public Gists, archived web indexes, code, security, public data, research, news and more), with recommended fast-moving sources selected for new clients. Effective seeds merge selected groups with manual input; duplicate URLs are removed and users can filter, preview, copy or export the result. Choices persist in local settings and presets. Old saved configurations are preserved without injecting defaults; Go's API accepts the fully resolved `seeds` string.

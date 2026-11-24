@@ -46,3 +46,24 @@
 .subdomain-host{font:600 11px ui-monospace,Consolas,monospace;color:#b9e4d9;overflow-wrap:anywhere}
 .subdomain-meta{font:10px ui-monospace,Consolas,monospace;color:#8298ad}
 .subdomain-content .note{margin:10px 0 0;font-size:10px}
+
+/* Selectable starter collections: public entry pages, not search-engine API crawls. */
+.starter-search{background:#0e1722;border:1px solid #314055;border-radius:7px;color:#dcebf6;padding:10px;width:100%;font-size:11px}
+.starter-catalog{display:grid;gap:7px;max-height:355px;overflow:auto;scrollbar-width:thin;padding-right:2px}
+.starter-item{background:#15212c;border:1px solid #2e4052;border-radius:8px;padding:8px 9px}
+.starter-item:has(input:checked){border-color:#397e75;background:#183331}
+.starter-choice{display:flex;gap:9px;align-items:flex-start;cursor:pointer;color:#cbd8e5;font-size:11px}
+.starter-choice input{accent-color:#45d4bd;margin:3px 0 0;flex-shrink:0}
+.starter-choice strong{font-size:11px}
+.starter-choice small{display:block;margin-top:3px;color:#91a8b7;line-height:1.45;font-size:10px}
+.starter-item details{margin:7px 0 0 22px;color:#819bb1;font-size:10px}
+.starter-item details summary{cursor:pointer}
+.starter-url-options{display:grid;gap:6px;max-height:240px;overflow:auto;margin-top:8px}
+.starter-url-line{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.starter-url-line label{display:flex;align-items:flex-start;gap:6px;min-width:0;cursor:pointer;color:#a6bccd;font:10px/1.35 ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.starter-url-line input{accent-color:#45d4bd;flex:none;margin:2px 0 0}
+.starter-url-line a{color:#72b9c6;font-size:10px}
+.starter-item pre,.starter-preview{white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.65 ui-monospace,Consolas,monospace;color:#a7cfd3;max-height:135px;overflow:auto}
+.starter-preview-details{border:1px solid #314455;border-radius:8px;padding:8px 10px;font-size:11px}
+.starter-preview-details summary{cursor:pointer;color:#bcd1dd}
+.starter-tools .btn{min-width:110px}

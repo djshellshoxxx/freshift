@@ -92,7 +92,7 @@ def main():
             if proc.poll() is not None:
                 raise AssertionError('freshsift exited before startup')
             try:
-                if json.loads(get(base+'/api/version'))['version']=='0.5.0':
+                if json.loads(get(base+'/api/version'))['version']=='0.6.0':
                     break
             except (OSError,urllib.error.URLError):
                 time.sleep(.05)
