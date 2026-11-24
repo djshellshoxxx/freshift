@@ -48,6 +48,38 @@ async function hostedCrawlTests(browser){
   return page.locator('#matches').innerText();
  }
  try{
+  // Verification-only: check the deployed v0.6.0 bytes and pristine UI before changing settings.
+  await page.goto(hosted+'?verify=v0.6.0-'+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+  await page.locator('#browserModeNote').waitFor({state:'visible',timeout:20000});
+  await page.locator('#starterCatalog .starter-item').first().waitFor({state:'visible',timeout:20000});
+  for(const file of ['index.html','starter-lists.js','app.js']){
+   const response=await page.request.get(hosted+file+'?verify='+Date.now(),{headers:{'Cache-Control':'no-cache'}});
+   assert.equal(response.status(),200,'hosted asset unavailable: '+file);
+   assert.deepEqual(await response.body(),fs.readFileSync('docs/'+file),'hosted bytes differ from v0.6.0 merge: '+file);
+  }
+  passed('v0.6.0 index.html, starter-lists.js and app.js HTTP 200 and exact merge bytes');
+  const catalog=await page.evaluate(()=>{
+   const c=window.FreshSiftStarters;
+   return {groups:c.groups.length,entries:c.groups.reduce((n,g)=>n+g.urls.length,0),
+    checked:c.groups.filter(g=>document.getElementById('starter-'+g.id).checked).map(g=>g.id),
+    sites:document.querySelectorAll('#starterCatalog input[id^="starter-url-"]').length,
+    enabled:[...document.querySelectorAll('#starterCatalog input[id^="starter-url-"]')].filter(x=>!x.disabled).length,
+    defaults:c.defaultIds,first:c.groups.find(g=>g.id==='fresh').urls[0]};
+  });
+  assert.equal(catalog.groups,18);
+  assert.equal(catalog.entries,161);
+  assert.equal(catalog.sites,161);
+  assert.deepEqual(catalog.checked,['fresh']);
+  assert.deepEqual(catalog.defaults,['fresh']);
+  assert.equal(catalog.enabled,8);
+  assert((await page.locator('#starterPreview').innerText()).includes(catalog.first),'default preview missing first starter');
+  const fresh=page.locator('#starterCatalog .starter-item').filter({has:page.locator('#starter-fresh')});
+  await fresh.locator('summary').click();
+  await page.locator('#starter-url-fresh-0').uncheck();
+  assert(!(await page.locator('#starterPreview').innerText()).includes(catalog.first),'individual opt-out ignored');
+  await page.locator('#starter-url-fresh-0').check();
+  assert((await page.locator('#starterPreview').innerText()).includes(catalog.first),'individual re-selection ignored');
+  passed('v0.6.0 pristine UI: 18 categories, 161 site checkboxes, fresh-only defaults and individual opt-out/re-selection');
   await configure('source','freshsift-frontend',hosted+'index.html');
   assert((await page.title()).includes('FreshSift'),'hosted page title missing');
   assert(await page.evaluate(()=>!!window.FreshSiftBrowserEngine),'hosted browser engine unavailable');
