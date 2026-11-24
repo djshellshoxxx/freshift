@@ -45,15 +45,15 @@ jobs:
           files: |
             dist/FreshSift-windows-amd64.exe
             dist/SHA256SUMS.txt
-      - name: Publish v0.5.0 perpetual discovery Windows prerelease on first main push
+      - name: Publish v0.6.0 starter website catalog Windows prerelease on first main push
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v0.5.0 >/dev/null 2>&1; then
-            echo "v0.5.0 release already exists; preserve its immutable tag and binaries"
+          if gh release view v0.6.0 >/dev/null 2>&1; then
+            echo "v0.6.0 release already exists; preserve its immutable tag and binaries"
           else
-            gh release create v0.5.0 dist/FreshSift-windows-amd64.exe dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "FreshSift v0.5.0" --notes "Perpetual opt-in continuous discovery and URL rescanning; 1-1440 minute refresh intervals; bounded revisit inventory; repeated-match deduplication; restart checkpoint persistence in Go; matching browser-only Pages UI and source-discovery feed refresh. Preserves all v0.4 DNS and PTR features." --prerelease
+            gh release create v0.6.0 dist/FreshSift-windows-amd64.exe dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "FreshSift v0.6.0" --notes "18 curated selectable starter website categories (161 source entries), individual site opt-outs, multi-category deduplication, full preview, filter, clipboard/export, settings persistence and shared Go/Pages dashboard. Includes perpetual scans, Go checkpoint restoration, DNS/PTR and previous features." --prerelease
           fi
       - name: Upload workflow artifact for manual runs
         if: github.event_name == 'workflow_dispatch'
