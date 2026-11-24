@@ -27,6 +27,8 @@ jobs:
         run: |
           node --check docs/app.js
           node --check docs/browser-engine.js
+          node --check docs/starter-lists.js
+          node qa/starter-lists.test.cjs
           node --check docs/dns-intel.js
           node --check extension/background.js
           node qa/ui-contract.test.cjs

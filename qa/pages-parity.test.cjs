@@ -4,7 +4,8 @@ const fs=require('node:fs');const assert=require('node:assert/strict');const vm=
 const web=fs.readFileSync('web/index.html','utf8');
 const pages=fs.readFileSync('docs/index.html','utf8');
 assert.equal(pages.replace('\n<meta name="freshsift-frontend" content="pages">',''),web,'Pages HTML diverges from Go dashboard');
-for(const f of ['app.js','browser-engine.js','subdomains.js','dns-intel.js','style.css','favicon.svg'])assert.equal(fs.readFileSync('docs/'+f,'utf8'),fs.readFileSync('web/'+f,'utf8'),`Pages asset ${f} diverges from desktop`);
+for(const f of ['app.js','browser-engine.js','starter-lists.js','subdomains.js','dns-intel.js','style.css','favicon.svg'])assert.equal(fs.readFileSync('docs/'+f,'utf8'),fs.readFileSync('web/'+f,'utf8'),`Pages asset ${f} diverges from desktop`);
+assert(pages.includes('<script src="./starter-lists.js" defer></script>'),'Pages starter catalog module missing');
 assert(pages.includes('<script src="./subdomains.js" defer></script>'),'Pages subdomain engine is not loaded');
 assert(pages.includes('<script src="./dns-intel.js" defer></script>'),'Pages DNS intelligence module missing');
 assert(pages.includes('<script src="./browser-engine.js" defer></script>'),'Pages browser engine is not loaded');
